@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  money     Int      @default(100)
+  farms     Farm[]
+  createdAt DateTime @default(now())
+}
+
+model Farm {
+  id    String @id @default(cuid())
+  level Int    @default(1)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  crops     Crop[]
+  createdAt DateTime @default(now())
+}
+
+model MarketListing {
+  id        String   @id @default(cuid())
+  cropType  String
+  quantity  Int
+  price     Int
+  userId    String
+  createdAt DateTime @default(now())
+}
+
+model Crop {
+  id        String   @id @default(cuid())
+  type      String
+  plantedAt DateTime
+  readyAt   DateTime
+
+  tileIndex Int
+
+  farmId String
+  farm   Farm   @relation(fields: [farmId], references: [id])
+}
