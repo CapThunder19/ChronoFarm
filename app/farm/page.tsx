@@ -6,6 +6,7 @@ import { CROPS } from "@/lib/crops";
 export default function FarmPage() {
   const [money, setMoney] = useState(0);
   const [year, setYear] = useState(1910);
+  const [lastAdvanced, setLastAdvanced] = useState<string>(new Date().toISOString());
   const [event, setEvent] = useState<any>(null);
 
   const [crops, setCrops] = useState<any[]>([]);
@@ -24,6 +25,7 @@ export default function FarmPage() {
 
       setMoney(data.money);
       setYear(data.year);
+      setLastAdvanced(data.lastAdvanced);
       setEvent(data.event);
       setCrops(data.crops);
       setTiles(data.tiles);
@@ -138,6 +140,20 @@ export default function FarmPage() {
     loadStatus();
   };
 
+  // ---------------- RESET ----------------
+
+  const resetGame = async () => {
+    if (!confirm("Are you sure you want to reset EVERYTHING? All progress will be lost.")) return;
+
+    const res = await fetch("/api/reset", {
+      method: "POST",
+    });
+
+    const data = await res.json();
+    setMessage(data.message);
+    loadStatus();
+  };
+
   // ---------------- TIMER ----------------
 
   const getStatus = (crop: any) => {
@@ -158,7 +174,12 @@ export default function FarmPage() {
           <div>
             <h1 className="text-4xl font-black tracking-tighter mb-2">CHRONOFARM</h1>
             <div className="flex items-center gap-4">
-              <h2 className="text-xl font-mono text-zinc-500">📅 YEAR: {year}</h2>
+              <div className="flex flex-col">
+                <h2 className="text-xl font-mono text-zinc-500">📅 YEAR: {year}</h2>
+                <div className="text-[10px] text-zinc-600 font-mono">
+                  NEXT YEAR IN: {Math.max(0, 60 - Math.floor((new Date().getTime() - new Date(lastAdvanced).getTime()) / 1000))}s
+                </div>
+              </div>
               <h2 className="text-xl font-mono text-green-500">💰 MONEY: ${money}</h2>
             </div>
           </div>
@@ -318,6 +339,16 @@ export default function FarmPage() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Reset */}
+            <div className="mt-auto pt-8">
+              <button
+                onClick={resetGame}
+                className="w-full text-[10px] font-bold text-zinc-700 hover:text-red-500 transition-colors uppercase tracking-[0.2em] py-4 border-t border-zinc-900"
+              >
+                ☢️ Reset Game Data
+              </button>
             </div>
           </div>
         </div>

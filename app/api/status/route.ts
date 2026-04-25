@@ -17,8 +17,7 @@ export async function GET() {
         },
       });
 
-    const timeline =
-      await prisma.timeline.findFirst();
+    let timeline = await prisma.timeline.findFirst();
 
     if (!user) {
       return NextResponse.json({
@@ -31,8 +30,27 @@ export async function GET() {
       });
     }
 
-    const farm =
-      user.farms[0];
+    const farm = user.farms[0];
+
+    // --- AUTO-ADVANCE TIMELINE ---
+    if (timeline) {
+      const now = new Date();
+      const secondsSinceLastAdvance = (now.getTime() - timeline.lastAdvanced.getTime()) / 1000;
+      
+      if (secondsSinceLastAdvance >= 60) {
+        const yearsToAdvance = Math.floor(secondsSinceLastAdvance / 60);
+        const newYear = timeline.year + yearsToAdvance;
+        
+        // Update DB
+        timeline = await prisma.timeline.update({
+          where: { id: timeline.id },
+          data: {
+            year: newYear,
+            lastAdvanced: new Date(timeline.lastAdvanced.getTime() + (yearsToAdvance * 60 * 1000)),
+          }
+        });
+      }
+    }
 
     const event =
       EVENTS[timeline?.year ?? 1910];
@@ -43,6 +61,7 @@ export async function GET() {
       tiles: farm?.tiles ?? [],
       inventory: user.inventory ?? [],
       year: timeline?.year ?? 1910,
+      lastAdvanced: timeline?.lastAdvanced ?? new Date(),
       event,
     });
 
