@@ -1,0 +1,8 @@
+-- CreateTable
+CREATE TABLE "Timeline" (
+    "id" INTEGER NOT NULL DEFAULT 1,
+    "year" INTEGER NOT NULL DEFAULT 1910,
+    "lastAdvanced" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Timeline_pkey" PRIMARY KEY ("id")
+);

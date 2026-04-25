@@ -11,6 +11,8 @@ model User {
   name      String
   money     Int      @default(100)
   farms     Farm[]
+  inventory Inventory[]
+
   createdAt DateTime @default(now())
 }
 
@@ -19,10 +21,38 @@ model Farm {
   level Int    @default(1)
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User @relation(fields: [userId], references: [id])
 
-  crops     Crop[]
+  crops Crop[]
+  tiles Tile[]
+
   createdAt DateTime @default(now())
+}
+
+model Crop {
+  id        String   @id @default(cuid())
+
+  type      String
+
+  plantedAt DateTime
+  readyAt   DateTime
+
+  tileIndex Int
+
+  farmId String
+  farm   Farm @relation(fields: [farmId], references: [id])
+}
+
+model Inventory {
+  id       String @id @default(cuid())
+
+  cropType String
+  quantity Int @default(0)
+
+  userId String
+  user   User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, cropType])
 }
 
 model MarketListing {
@@ -34,14 +64,22 @@ model MarketListing {
   createdAt DateTime @default(now())
 }
 
-model Crop {
-  id        String   @id @default(cuid())
-  type      String
-  plantedAt DateTime
-  readyAt   DateTime
+model Tile {
+  id String @id @default(cuid())
 
-  tileIndex Int
+  index Int
+  unlocked Boolean @default(false)
 
   farmId String
-  farm   Farm   @relation(fields: [farmId], references: [id])
+  farm   Farm @relation(fields: [farmId], references: [id])
+
+  @@unique([farmId, index])
+}
+
+model Timeline {
+  id Int @id @default(1)
+
+  year Int @default(1910)
+
+  lastAdvanced DateTime @default(now())
 }
