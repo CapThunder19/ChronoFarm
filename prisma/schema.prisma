@@ -83,3 +83,23 @@ model Timeline {
 
   lastAdvanced DateTime @default(now())
 }
+
+model NPC {
+  id String @id @default(cuid())
+
+  name String
+
+  createdAt DateTime @default(now())
+}
+
+model MarketPrice {
+  id String @id @default(cuid())
+
+  cropType String
+
+  price Int
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([cropType])
+}

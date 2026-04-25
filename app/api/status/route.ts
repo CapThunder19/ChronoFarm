@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { EVENTS } from "@/lib/events";
+import { CROPS } from "@/lib/crops";
 
 export async function GET() {
   try {
+    // USER + FARM
+
     const user =
       await prisma.user.findFirst({
         include: {
@@ -25,6 +28,7 @@ export async function GET() {
         crops: [],
         tiles: [],
         inventory: [],
+        prices: [],
         year: 1910,
         event: null,
       });
@@ -36,24 +40,47 @@ export async function GET() {
     if (timeline) {
       const now = new Date();
       const secondsSinceLastAdvance = (now.getTime() - timeline.lastAdvanced.getTime()) / 1000;
-      
+
       if (secondsSinceLastAdvance >= 60) {
         const yearsToAdvance = Math.floor(secondsSinceLastAdvance / 60);
         const newYear = timeline.year + yearsToAdvance;
-        
-        // Update DB
-        timeline = await prisma.timeline.update({
-          where: { id: timeline.id },
-          data: {
-            year: newYear,
-            lastAdvanced: new Date(timeline.lastAdvanced.getTime() + (yearsToAdvance * 60 * 1000)),
+        const event = EVENTS[newYear];
+        const multiplier = event?.effects?.priceMultiplier ?? 1.0;
+        const demandCrops = event?.effects?.demand ?? [];
+
+        // Update DB in transaction
+        timeline = await prisma.$transaction(async (tx) => {
+          const updatedTimeline = await tx.timeline.update({
+            where: { id: timeline!.id },
+            data: {
+              year: newYear,
+              lastAdvanced: new Date(timeline!.lastAdvanced.getTime() + (yearsToAdvance * 60 * 1000)),
+            }
+          });
+
+          // Update Prices
+          const currentPrices = await tx.marketPrice.findMany();
+          for (const item of currentPrices) {
+            const cropInfo = CROPS[item.cropType];
+            if (!cropInfo) continue;
+            const drift = 1 + (Math.random() * 0.4 - 0.2);
+            let finalPrice = Math.floor(cropInfo.reward * drift * multiplier);
+            if (demandCrops.includes(item.cropType)) finalPrice = Math.floor(finalPrice * 1.8);
+            if (finalPrice < 1) finalPrice = 1;
+
+            await tx.marketPrice.update({
+              where: { cropType: item.cropType },
+              data: { price: finalPrice },
+            });
           }
+          return updatedTimeline;
         });
       }
     }
 
-    const event =
-      EVENTS[timeline?.year ?? 1910];
+    const npc = await prisma.nPC.findFirst();
+    const marketPrices = await prisma.marketPrice.findMany();
+    const event = EVENTS[timeline?.year ?? 1910];
 
     return NextResponse.json({
       money: user.money,
@@ -63,6 +90,8 @@ export async function GET() {
       year: timeline?.year ?? 1910,
       lastAdvanced: timeline?.lastAdvanced ?? new Date(),
       event,
+      npc,
+      marketPrices,
     });
 
   } catch (error) {
@@ -74,6 +103,7 @@ export async function GET() {
         crops: [],
         tiles: [],
         inventory: [],
+        prices: [],
         year: 1910,
         event: null,
       },

@@ -12,6 +12,8 @@ export default function FarmPage() {
   const [crops, setCrops] = useState<any[]>([]);
   const [tiles, setTiles] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
+  const [marketPrices, setMarketPrices] = useState<any[]>([]);
+  const [npc, setNpc] = useState<any>(null);
 
   const [selectedCrop, setSelectedCrop] = useState("WHEAT");
   const [message, setMessage] = useState("");
@@ -30,6 +32,8 @@ export default function FarmPage() {
       setCrops(data.crops);
       setTiles(data.tiles);
       setInventory(data.inventory);
+      setMarketPrices(data.marketPrices || []);
+      setNpc(data.npc);
     } catch (err) {
       console.error("Failed to load status", err);
     }
@@ -51,7 +55,7 @@ export default function FarmPage() {
     });
 
     const data = await res.json();
-    setMessage(data.message);
+    setMessage(data.message || data.error || "");
     loadStatus();
   };
 
@@ -76,7 +80,7 @@ export default function FarmPage() {
         });
 
         const data = await res.json();
-        setMessage(data.message);
+        setMessage(data.message || data.error || "");
         loadStatus();
         return;
       }
@@ -97,7 +101,7 @@ export default function FarmPage() {
         });
 
         const data = await res.json();
-        setMessage(data.message);
+        setMessage(data.message || data.error || "");
       }
       // HARVEST
       else {
@@ -112,7 +116,7 @@ export default function FarmPage() {
         });
 
         const data = await res.json();
-        setMessage(data.message);
+        setMessage(data.message || data.error || "");
       }
 
       loadStatus();
@@ -136,7 +140,7 @@ export default function FarmPage() {
     });
 
     const data = await res.json();
-    setMessage(data.message);
+    setMessage(data.message || data.error || "");
     loadStatus();
   };
 
@@ -150,7 +154,7 @@ export default function FarmPage() {
     });
 
     const data = await res.json();
-    setMessage(data.message);
+    setMessage(data.message || data.error || "");
     loadStatus();
   };
 
@@ -191,6 +195,22 @@ export default function FarmPage() {
           </button>
         </div>
 
+        {/* NPC SECTION */}
+        {npc && (
+          <div className="mb-8 p-4 bg-zinc-900 rounded-xl border border-zinc-800 flex items-center gap-4 shadow-xl">
+            <div className="w-12 h-12 bg-blue-900 rounded-full flex items-center justify-center text-2xl shadow-inner">
+              👨‍💼
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-blue-500 uppercase tracking-widest">Local Trader</h3>
+              <div className="text-lg font-bold">{npc.name}</div>
+              <div className="text-zinc-300 text-sm italic mt-1 font-serif">
+                "{event?.dialogue || "The markets are shifting. Watch the prices closely."}"
+              </div>
+            </div>
+          </div>
+        )}
+
         {event && (
           <div className="mb-8 p-4 bg-zinc-900 rounded-lg border-l-4 border-red-600 animate-pulse">
             <h3 className="font-bold text-red-500 mb-1 uppercase tracking-widest text-xs">⚠️ Historical Event</h3>
@@ -202,7 +222,7 @@ export default function FarmPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2">
             {/* Message */}
-            <div className={`mb-4 min-h-[1.5rem] font-mono text-sm ${message.includes("failed") ? "text-red-400" : "text-blue-400"}`}>
+            <div className={`mb-4 min-h-[1.5rem] font-mono text-sm ${message?.includes("failed") ? "text-red-400" : "text-blue-400"}`}>
               {message && <span>{">"} {message}</span>}
             </div>
 
@@ -271,7 +291,7 @@ export default function FarmPage() {
                   onClick={async () => {
                     const res = await fetch("/api/init");
                     const data = await res.json();
-                    setMessage(data.message);
+                    setMessage(data.message || data.error || "");
                     loadStatus();
                   }}
                   className="bg-green-600 hover:bg-green-500 px-10 py-4 rounded-full font-black text-xl transition-all shadow-lg shadow-green-900/40 active:scale-95"
@@ -301,6 +321,28 @@ export default function FarmPage() {
                     <span className="text-[10px] font-bold">{CROPS[key].name}</span>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Marketplace Prices */}
+            <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 shadow-xl">
+              <h3 className="text-xs font-bold text-zinc-500 mb-4 uppercase tracking-widest">Global Market Prices</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {marketPrices.map((p) => {
+                  const isDemand = event?.effects?.demand?.includes(p.cropType);
+                  return (
+                    <div key={p.id} className={`flex items-center justify-between p-3 bg-black rounded-lg border ${isDemand ? "border-green-500 shadow-lg shadow-green-900/20" : "border-zinc-800"}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{CROPS[p.cropType]?.emoji || "🌾"}</span>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-zinc-400">{p.cropType}</span>
+                          {isDemand && <span className="text-[8px] text-green-500 font-black uppercase">High Demand</span>}
+                        </div>
+                      </div>
+                      <div className="text-sm font-mono text-green-500 font-bold">${p.price}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

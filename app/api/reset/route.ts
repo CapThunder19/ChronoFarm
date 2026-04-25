@@ -14,6 +14,8 @@ export async function POST() {
       await tx.farm.deleteMany();
       await tx.user.deleteMany();
       await tx.timeline.deleteMany();
+      await tx.nPC.deleteMany();
+      await tx.marketPrice.deleteMany();
 
       // CREATE USER
       const user = await tx.user.create({
@@ -49,6 +51,35 @@ export async function POST() {
         data: {
           year: 1910,
         },
+      });
+
+      // CREATE NPC
+      await tx.nPC.create({
+        data: {
+          name: "European Trader",
+        },
+      });
+
+      // CREATE INITIAL PRICES
+      await tx.marketPrice.createMany({
+        data: [
+          {
+            cropType: "WHEAT",
+            price: 10,
+          },
+          {
+            cropType: "CORN",
+            price: 15,
+          },
+          {
+            cropType: "CARROT",
+            price: 12,
+          },
+          {
+            cropType: "POTATO",
+            price: 8,
+          },
+        ],
       });
     });
 

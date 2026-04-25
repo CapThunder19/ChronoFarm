@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { CROPS } from "@/lib/crops";
 import { EVENTS } from "@/lib/events";
 
 export async function POST(
@@ -15,13 +14,24 @@ export async function POST(
       quantity,
     } = body;
 
+    if (!cropType || !quantity) {
+      return NextResponse.json({
+        message: "Invalid request",
+      });
+    }
+
+    // USER
+
     const user =
       await prisma.user.findFirst();
 
-    if (!user)
+    if (!user) {
       return NextResponse.json({
-        error: "User missing",
+        message: "User missing",
       });
+    }
+
+    // INVENTORY
 
     const inventory =
       await prisma.inventory.findUnique({
@@ -37,23 +47,42 @@ export async function POST(
       !inventory ||
       inventory.quantity <
         quantity
-    )
+    ) {
       return NextResponse.json({
         message:
           "Not enough crops",
       });
+    }
 
-    const cropConfig =
-      CROPS[cropType];
+    // MARKET PRICE
+
+    const market =
+      await prisma.marketPrice.findUnique({
+        where: {
+          cropType,
+        },
+      });
+
+    if (!market) {
+      return NextResponse.json({
+        message:
+          "Market price missing",
+      });
+    }
+
+    let price =
+      market.price;
+
+    // EVENT EFFECT
 
     const timeline =
       await prisma.timeline.findFirst();
 
-    const event =
-      EVENTS[timeline?.year ?? 1910];
+    const year =
+      timeline?.year ?? 1910;
 
-    let price =
-      cropConfig.reward;
+    const event =
+      EVENTS[year];
 
     if (
       event?.effects
@@ -70,6 +99,8 @@ export async function POST(
     const totalMoney =
       price * quantity;
 
+    // UPDATE INVENTORY
+
     await prisma.inventory.update({
       where: {
         userId_cropType: {
@@ -85,6 +116,8 @@ export async function POST(
       },
     });
 
+    // UPDATE MONEY
+
     await prisma.user.update({
       where: {
         id: user.id,
@@ -98,14 +131,14 @@ export async function POST(
     });
 
     return NextResponse.json({
-      message: `Sold ${quantity}`,
+      message: `Sold ${quantity} ${cropType} for $${totalMoney}`,
     });
 
   } catch (error) {
     console.error(error);
 
     return NextResponse.json(
-      { error: "Sell failed" },
+      { message: "Sell failed" },
       { status: 500 }
     );
   }
