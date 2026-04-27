@@ -18,6 +18,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Region not found" }, { status: 404 });
     }
 
+      // Prevent travel to locked regions based on player's farm levels
+      const farms = await prisma.farm.findMany({ where: { userId: user.id } });
+      const maxLevel = farms.reduce((m, f) => Math.max(m, f.level ?? 1), 0);
+      if (region.unlockLevel && maxLevel < region.unlockLevel) {
+        return NextResponse.json({ error: `Region locked until level ${region.unlockLevel}` }, { status: 400 });
+      }
+
     await prisma.user.update({
       where: { id: user.id },
       data: { currentRegionId: region.id },

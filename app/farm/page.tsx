@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CROPS } from "@/lib/crops";
+import { EVENTS } from "@/lib/events";
 import Link from "next/link";
 
 export default function FarmPage() {
@@ -21,6 +22,9 @@ export default function FarmPage() {
 
   const [selectedCrop, setSelectedCrop] = useState("WHEAT");
   const [message, setMessage] = useState("");
+  const [level, setLevel] = useState(1);
+  const [xp, setXp] = useState(0);
+  const [farmsState, setFarmsState] = useState<any[]>([]);
 
   // ---------------- LOAD STATUS ----------------
 
@@ -40,6 +44,9 @@ export default function FarmPage() {
       setNpc(data.npc ?? null);
       setRegions(data.regions ?? []);
       setCurrentRegion(data.currentRegion ?? null);
+      setLevel(data.level ?? 1);
+      setXp(data.xp ?? 0);
+      setFarmsState(data.farms ?? []);
     } catch (err) {
       console.error("Failed to load status", err);
     }
@@ -187,6 +194,33 @@ export default function FarmPage() {
 
   // ---------------- UI ----------------
 
+  const levelYearPairs = Object.keys(EVENTS)
+    .map((year) => parseInt(year, 10))
+    .sort((a, b) => a - b)
+    .map((eventYear, index) => ({ level: index + 1, year: eventYear }));
+
+  // Ensure selected crop is valid for current region and level
+  useEffect(() => {
+    const keys = Object.keys(CROPS);
+    const firstAllowed = keys.find((k) => {
+      const cfg = CROPS[k] as any;
+      // region check
+      if (cfg.regions && currentRegion && !cfg.regions.includes(currentRegion.name)) return false;
+      // level check
+      if (cfg.unlockLevel && (level ?? 1) < cfg.unlockLevel) return false;
+      return true;
+    });
+    if (firstAllowed && !Object.keys(CROPS).includes(selectedCrop)) {
+      setSelectedCrop(firstAllowed);
+    }
+    if (firstAllowed && selectedCrop) {
+      const selCfg = CROPS[selectedCrop] as any;
+      const selAllowed = !(selCfg.regions && currentRegion && !selCfg.regions.includes(currentRegion.name)) && !(selCfg.unlockLevel && (level ?? 1) < selCfg.unlockLevel);
+      if (!selAllowed) setSelectedCrop(firstAllowed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRegion, level]);
+
   return (
     <div className="min-h-screen bg-[#050505] text-zinc-100 p-8 font-sans selection:bg-green-500/30">
       <div className="max-w-6xl mx-auto">
@@ -200,7 +234,7 @@ export default function FarmPage() {
             <div className="flex items-center gap-6">
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Timeline</span>
-                <h2 className="text-2xl font-mono font-bold text-zinc-300">📅 {year}</h2>
+                  <h2 className="text-2xl font-mono font-bold text-zinc-300">📅 {year}</h2>
               </div>
               <div className="h-10 w-[1px] bg-zinc-900"></div>
               <div className="flex flex-col">
@@ -217,6 +251,24 @@ export default function FarmPage() {
                   </div>
                 </div>
               )}
+                <div className="h-10 w-[1px] bg-zinc-900"></div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Farm Level</span>
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl font-mono font-bold">L{level}</div>
+                    <div className="w-40 bg-zinc-800 rounded-full h-3 overflow-hidden">
+                      <div className="h-3 bg-green-500" style={{ width: `${Math.min(100, (xp % 100))}%` }}></div>
+                    </div>
+                    <div className="text-sm text-zinc-400">{xp} XP</div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-zinc-500">
+                    {levelYearPairs.slice(0, 4).map((item) => (
+                      <span key={item.level} className="px-2 py-1 rounded-full bg-zinc-900 border border-zinc-800">
+                        L{item.level} → {item.year}
+                      </span>
+                    ))}
+                  </div>
+                </div>
             </div>
           </div>
           
@@ -235,12 +287,10 @@ export default function FarmPage() {
               <span className="text-xl">🗺️</span>
               {showMap ? "Back to Farm" : "World Map"}
             </button>
-            <button
-              onClick={advanceTime}
-              className="px-8 py-4 bg-green-600 hover:bg-green-500 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-green-900/20 active:scale-95 text-black"
-            >
-              ⏩ Next Year
-            </button>
+            <div className="px-8 py-4 bg-green-600/10 border border-green-500/30 rounded-2xl font-black text-xs uppercase tracking-widest text-green-400 flex items-center gap-3">
+              <span className="text-xl">⏩</span>
+              Auto year sync
+            </div>
           </div>
         </header>
 
@@ -274,12 +324,28 @@ export default function FarmPage() {
                         Current Location
                       </div>
                     ) : (
-                      <button 
-                        onClick={() => travelTo(r.id)}
-                        className="w-full py-3 bg-zinc-100 hover:bg-white text-black text-center font-black text-[10px] uppercase tracking-widest rounded-xl transition-all"
-                      >
-                        Travel to Region
-                      </button>
+                      (() => {
+                        const maxLevel = farmsState.length ? Math.max(...farmsState.map((f) => f.level ?? 1)) : (level ?? 1);
+                        const levelLocked = r.unlockLevel && (maxLevel ?? 1) < r.unlockLevel;
+                        const requiredYear = levelYearPairs.find((item) => item.level === r.unlockLevel)?.year;
+                        return levelLocked ? (
+                          <div className="space-y-2">
+                            <div className="w-full py-3 bg-zinc-800 text-zinc-500 text-center font-black text-[10px] uppercase tracking-widest rounded-xl">
+                              Locked (L{r.unlockLevel})
+                            </div>
+                            <div className="w-full py-2 bg-black/60 border border-zinc-800 text-zinc-300 text-center rounded-xl text-[10px] font-bold uppercase tracking-widest">
+                              Unlocks at {requiredYear ? `Year ${requiredYear}` : `Level ${r.unlockLevel}`}
+                            </div>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => travelTo(r.id)}
+                            className="w-full py-3 bg-zinc-100 hover:bg-white text-black text-center font-black text-[10px] uppercase tracking-widest rounded-xl transition-all"
+                          >
+                            Travel to Region
+                          </button>
+                        );
+                      })()
                     )}
                   </div>
                 </div>
@@ -438,20 +504,36 @@ export default function FarmPage() {
               <div className="p-6 bg-zinc-900 rounded-3xl border border-zinc-800 shadow-xl">
                 <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-6 block">Select Seed Type</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {Object.keys(CROPS).map((key) => (
-                    <button
-                      key={key}
-                      onClick={() => setSelectedCrop(key)}
-                      className={`flex flex-col items-center p-4 rounded-2xl border-2 transition-all duration-300 ${
-                        selectedCrop === key 
-                          ? "bg-green-500/10 border-green-500 shadow-lg shadow-green-500/10" 
-                          : "bg-black/40 border-zinc-800 hover:border-zinc-700 opacity-60 hover:opacity-100"
-                      }`}
-                    >
-                      <span className="text-3xl mb-2">{CROPS[key].emoji}</span>
-                      <span className="text-[9px] font-black uppercase tracking-widest">{CROPS[key].name}</span>
-                    </button>
-                  ))}
+                  {Object.keys(CROPS).map((key) => {
+                    const cfg = CROPS[key] as any;
+                    const regionLocked = cfg.regions && currentRegion && !cfg.regions.includes(currentRegion.name);
+                    const levelLocked = cfg.unlockLevel && (level ?? 1) < cfg.unlockLevel;
+                    const disabled = regionLocked || levelLocked;
+
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => !disabled && setSelectedCrop(key)}
+                        disabled={disabled}
+                        className={`flex flex-col items-center p-4 rounded-2xl border-2 transition-all duration-300 ${
+                          selectedCrop === key 
+                            ? "bg-green-500/10 border-green-500 shadow-lg shadow-green-500/10" 
+                            : disabled
+                            ? "bg-black/20 border-zinc-800/30 opacity-40 cursor-not-allowed"
+                            : "bg-black/40 border-zinc-800 hover:border-zinc-700 opacity-60 hover:opacity-100"
+                        }`}
+                      >
+                        <span className="text-3xl mb-2">{cfg.emoji}</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest">{cfg.name}</span>
+                        {levelLocked && (
+                          <span className="text-[9px] mt-1 text-yellow-400">Unlocks at L{cfg.unlockLevel}</span>
+                        )}
+                        {regionLocked && (
+                          <span className="text-[9px] mt-1 text-blue-400">Not available in {currentRegion?.name}</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

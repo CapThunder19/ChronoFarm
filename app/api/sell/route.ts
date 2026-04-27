@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { EVENTS } from "@/lib/events";
 import { calculatePrice } from "@/lib/pricing";
+import { syncProgression } from "@/lib/progression";
 
 export async function POST(req: Request) {
   try {
@@ -106,6 +107,23 @@ export async function POST(req: Request) {
       }),
     ]);
 
+    // Grant XP to farm for selling (larger amount proportional to quantity)
+    // Find the farm for the target/current region so XP is granted to the correct regional farm
+    const farm = user.currentRegionId
+      ? await prisma.farm.findFirst({ where: { userId: user.id, regionId: user.currentRegionId } })
+      : await prisma.farm.findFirst({ where: { userId: user.id } });
+    if (farm) {
+      await prisma.farm.update({
+        where: { id: farm.id },
+        data: {
+          xp: { increment: Math.floor(quantity * 10) },
+        },
+      });
+    }
+
+    // Sync farm level and timeline immediately when XP changes
+    await syncProgression(prisma);
+
     return NextResponse.json({
       message: `Sold ${quantity} ${cropType} for $${totalMoney}`,
     });
@@ -114,4 +132,4 @@ export async function POST(req: Request) {
     console.error(error);
     return NextResponse.json({ message: "Sell failed" }, { status: 500 });
   }
-}
+}

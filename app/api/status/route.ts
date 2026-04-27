@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { EVENTS } from "@/lib/events";
+import { syncProgression } from "@/lib/progression";
 
 export async function GET() {
   try {
+    // Keep the timeline aligned with the current XP/level state.
+    await syncProgression(prisma);
+
     const user = await prisma.user.findFirst({
       include: {
         inventory: true,
@@ -66,15 +70,20 @@ export async function GET() {
       });
     }
 
-    const farm = user.farms[0];
+    // Pick the farm for the current region
+    const farm = currentRegion ? user.farms.find((f: any) => f.regionId === currentRegion.id) : user.farms[0];
 
     return NextResponse.json({
       money: user.money,
+      level: farm?.level ?? 1,
+      xp: farm?.xp ?? 0,
+      farms: user.farms ?? [],
       crops: farm?.crops ?? [],
       tiles: farm?.tiles ?? [],
       inventory: user.inventory ?? [],
       prices,
       year,
+      lastAdvanced: timeline?.lastAdvanced ?? null,
       event,
       regions,
       currentRegion,
@@ -88,4 +97,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+}

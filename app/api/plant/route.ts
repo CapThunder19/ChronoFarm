@@ -15,8 +15,11 @@ export async function POST(
       type,
     } = body;
 
-    const farm =
-      await prisma.farm.findFirst();
+    // Find the farm for the player's current region
+    const user = await prisma.user.findFirst();
+    const farm = user?.currentRegionId
+      ? await prisma.farm.findFirst({ where: { userId: user.id, regionId: user.currentRegionId } })
+      : await prisma.farm.findFirst({ where: { userId: user?.id } });
 
     if (!farm)
       return NextResponse.json({
@@ -44,6 +47,23 @@ export async function POST(
       return NextResponse.json({
         error: "Invalid crop",
       });
+
+    // Check player's current region and ensure crop is available there
+    let currentRegion = null;
+    if (user?.currentRegionId) {
+      currentRegion = await prisma.region.findUnique({ where: { id: user.currentRegionId } });
+    }
+
+    if (cropConfig.regions && currentRegion && !cropConfig.regions.includes(currentRegion.name)) {
+      return NextResponse.json({ error: `Cannot plant ${type} in ${currentRegion.name}` });
+    }
+
+    // Check farm level against crop unlock level
+    const farmWithLevel = await prisma.farm.findUnique({ where: { id: farm.id } });
+    const farmLevel = farmWithLevel?.level ?? 1;
+    if (cropConfig.unlockLevel && farmLevel < cropConfig.unlockLevel) {
+      return NextResponse.json({ error: `Crop ${type} unlocks at level ${cropConfig.unlockLevel}` });
+    }
 
     const timeline =
       await prisma.timeline.findFirst();

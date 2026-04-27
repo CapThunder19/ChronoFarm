@@ -7,26 +7,22 @@ export async function POST(req: Request) {
 
     const { tileIndex } = body;
 
-    const farm =
-      await prisma.farm.findFirst({
-        include: { tiles: true },
+    // Use the farm for the player's current region
+    const user = await prisma.user.findFirst();
+    if (!user)
+      return NextResponse.json({
+        error: "User not found",
       });
+
+    const currentUser = user;
+
+    const farm = currentUser.currentRegionId
+      ? await prisma.farm.findFirst({ where: { userId: currentUser.id, regionId: currentUser.currentRegionId }, include: { tiles: true } })
+      : await prisma.farm.findFirst({ where: { userId: currentUser.id }, include: { tiles: true } });
 
     if (!farm)
       return NextResponse.json({
         error: "Farm not found",
-      });
-
-    const user =
-      await prisma.user.findUnique({
-        where: {
-          id: farm.userId,
-        },
-      });
-
-    if (!user)
-      return NextResponse.json({
-        error: "User not found",
       });
 
     const tile =
@@ -49,16 +45,21 @@ export async function POST(req: Request) {
         message: "Already unlocked",
       });
 
-    const cost =
-      (tileIndex + 1) * 20;
+    // Require farm level for higher tiles. First 3 tiles free/unlockable at start.
+    const requiredLevel = Math.max(1, tileIndex - 1);
+    if ((farm.level ?? 1) < requiredLevel) {
+      return NextResponse.json({ message: `Tile ${tileIndex} requires level ${requiredLevel}` }, { status: 400 });
+    }
 
-    if (user.money < cost)
+    const cost = (tileIndex + 1) * 20;
+
+    if (currentUser.money < cost)
       return NextResponse.json({
         message: "Not enough money",
       });
 
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: currentUser.id },
       data: {
         money: {
           decrement: cost,

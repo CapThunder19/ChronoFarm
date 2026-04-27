@@ -25,14 +25,21 @@ model User {
 model Farm {
   id    String @id @default(cuid())
   level Int    @default(1)
+  xp    Int    @default(0)
 
   userId String
   user   User @relation(fields: [userId], references: [id])
+
+  // Associate a farm with a region so each region can have its own farm
+  regionId String?
+  region   Region? @relation(fields: [regionId], references: [id])
 
   crops Crop[]
   tiles Tile[]
 
   createdAt DateTime @default(now())
+
+  @@unique([userId, regionId])
 }
 
 model Crop {
@@ -97,8 +104,11 @@ model Region {
   // Active region (for single-player mode)
 
   isActive Boolean @default(false)
+  // Level at which this region unlocks
+  unlockLevel Int @default(1)
 
   users User[]
+  farms Farm[]
   npcs NPC[]
   marketPrices MarketPrice[]
 

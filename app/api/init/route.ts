@@ -20,6 +20,7 @@ export async function GET() {
         description: "Industrial heartland of the early 20th century.",
         priceMultiplier: 1.0,
         isActive: true,
+        unlockLevel: 1,
       },
     });
 
@@ -30,6 +31,7 @@ export async function GET() {
         description: "The land of opportunity and vast cornfields.",
         priceMultiplier: 1.2,
         isActive: false,
+        unlockLevel: 2,
       },
     });
 
@@ -40,6 +42,7 @@ export async function GET() {
         description: "Ancient lands with growing market potential.",
         priceMultiplier: 0.8,
         isActive: false,
+        unlockLevel: 3,
       },
     });
 
@@ -54,23 +57,29 @@ export async function GET() {
       },
     });
 
-    // 3. CREATE FARM
-    const farm = await prisma.farm.create({
-      data: {
-        userId: user.id,
-      },
-    });
-
-    // 4. CREATE TILES
-    const tiles = [];
-    for (let i = 0; i < 9; i++) {
-      tiles.push({
-        farmId: farm.id,
-        index: i,
-        unlocked: i < 3,
+    // 3. CREATE A FARM FOR EACH REGION
+    const farms: any[] = [];
+    for (const region of regions) {
+      const f = await prisma.farm.create({
+        data: {
+          userId: user.id,
+          regionId: region.id,
+          level: 1,
+        },
       });
+      farms.push(f);
+
+      // Create tiles for each farm
+      const tiles = [];
+      for (let i = 0; i < 9; i++) {
+        tiles.push({
+          farmId: f.id,
+          index: i,
+          unlocked: i < 3,
+        });
+      }
+      await prisma.tile.createMany({ data: tiles });
     }
-    await prisma.tile.createMany({ data: tiles });
 
     // 5. CREATE TIMELINE
     await prisma.timeline.create({
@@ -95,9 +104,14 @@ export async function GET() {
         },
       });
 
-      // Create MarketPrices for each crop in region
+      // Create MarketPrices for each crop available in the region
       for (const cropType of Object.keys(CROPS)) {
-        const basePrice = CROPS[cropType].reward * 2;
+        const crop = CROPS[cropType];
+
+        // If crop defines regions and this region isn't included, skip
+        if (crop.regions && !crop.regions.includes(region.name)) continue;
+
+        const basePrice = crop.reward * 2;
         await prisma.marketPrice.create({
           data: {
             cropType,
@@ -119,4 +133,4 @@ export async function GET() {
     console.error(error);
     return NextResponse.json({ error: error.message || "Init failed" }, { status: 500 });
   }
-}
+}
