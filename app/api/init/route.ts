@@ -1,80 +1,122 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { CROPS } from "@/lib/crops";
 
 export async function GET() {
   try {
-    const existingUser =
-      await prisma.user.findFirst({
-        include: {
-          farms: true,
-        },
-      });
+    const existingUser = await prisma.user.findFirst();
 
     if (existingUser) {
       return NextResponse.json({
-        message:
-          "Game already initialized",
+        message: "Game already initialized",
       });
     }
 
-    // Create user
+    // 1. CREATE REGIONS
+    const europe = await prisma.region.create({
+      data: {
+        name: "Europe",
+        continent: "Europe",
+        description: "Industrial heartland of the early 20th century.",
+        priceMultiplier: 1.0,
+        isActive: true,
+      },
+    });
 
-    const user =
-      await prisma.user.create({
-        data: {
-          name: "Player",
-          money: 100,
-        },
-      });
+    const americas = await prisma.region.create({
+      data: {
+        name: "Americas",
+        continent: "North America",
+        description: "The land of opportunity and vast cornfields.",
+        priceMultiplier: 1.2,
+        isActive: false,
+      },
+    });
 
-    // Create farm
+    const asia = await prisma.region.create({
+      data: {
+        name: "Asia",
+        continent: "Asia",
+        description: "Ancient lands with growing market potential.",
+        priceMultiplier: 0.8,
+        isActive: false,
+      },
+    });
 
-    const farm =
-      await prisma.farm.create({
-        data: {
-          userId: user.id,
-          level: 1,
-        },
-      });
+    const regions = [europe, americas, asia];
 
-    // Create tiles
+    // 2. CREATE USER
+    const user = await prisma.user.create({
+      data: {
+        name: "Player",
+        money: 100,
+        currentRegionId: europe.id,
+      },
+    });
 
+    // 3. CREATE FARM
+    const farm = await prisma.farm.create({
+      data: {
+        userId: user.id,
+      },
+    });
+
+    // 4. CREATE TILES
     const tiles = [];
-
-    for (
-      let i = 0;
-      i < 9;
-      i++
-    ) {
+    for (let i = 0; i < 9; i++) {
       tiles.push({
         farmId: farm.id,
         index: i,
         unlocked: i < 3,
       });
     }
+    await prisma.tile.createMany({ data: tiles });
 
-    await prisma.tile.createMany({
-      data: tiles,
-    });
-
-    // Create initial timeline
+    // 5. CREATE TIMELINE
     await prisma.timeline.create({
       data: {
         year: 1910,
       },
     });
 
+    // 6. CREATE NPCs AND MARKET PRICES
+    for (const region of regions) {
+      // Create multiple NPCs for region
+      await prisma.nPC.create({
+        data: {
+          name: `${region.name} Grain Merchant`,
+          regionId: region.id,
+        },
+      });
+      await prisma.nPC.create({
+        data: {
+          name: `${region.name} Produce Dealer`,
+          regionId: region.id,
+        },
+      });
+
+      // Create MarketPrices for each crop in region
+      for (const cropType of Object.keys(CROPS)) {
+        const basePrice = CROPS[cropType].reward * 2;
+        await prisma.marketPrice.create({
+          data: {
+            cropType,
+            basePrice,
+            price: basePrice,
+            supply: 100,
+            demand: 100,
+            regionId: region.id,
+          },
+        });
+      }
+    }
+
     return NextResponse.json({
-      message:
-        "Game initialized",
+      message: "Game initialized with 3 regions, NPCs, and dynamic markets",
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-
-    return NextResponse.json(
-      { error: "Init failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || "Init failed" }, { status: 500 });
   }
-}
+}

@@ -10,6 +10,12 @@ model User {
   id        String   @id @default(cuid())
   name      String
   money     Int      @default(100)
+
+  // Current region (for travel system)
+
+  currentRegionId String?
+  currentRegion   Region? @relation(fields: [currentRegionId], references: [id])
+
   farms     Farm[]
   inventory Inventory[]
 
@@ -30,9 +36,9 @@ model Farm {
 }
 
 model Crop {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  type      String
+  type String
 
   plantedAt DateTime
   readyAt   DateTime
@@ -44,7 +50,7 @@ model Crop {
 }
 
 model Inventory {
-  id       String @id @default(cuid())
+  id String @id @default(cuid())
 
   cropType String
   quantity Int @default(0)
@@ -53,15 +59,6 @@ model Inventory {
   user   User @relation(fields: [userId], references: [id])
 
   @@unique([userId, cropType])
-}
-
-model MarketListing {
-  id        String   @id @default(cuid())
-  cropType  String
-  quantity  Int
-  price     Int
-  userId    String
-  createdAt DateTime @default(now())
 }
 
 model Tile {
@@ -84,10 +81,37 @@ model Timeline {
   lastAdvanced DateTime @default(now())
 }
 
+model Region {
+  id String @id @default(cuid())
+
+  name String
+
+  continent String
+
+  description String
+
+  // Region economic modifier
+
+  priceMultiplier Float @default(1)
+
+  // Active region (for single-player mode)
+
+  isActive Boolean @default(false)
+
+  users User[]
+  npcs NPC[]
+  marketPrices MarketPrice[]
+
+  createdAt DateTime @default(now())
+}
+
 model NPC {
   id String @id @default(cuid())
 
   name String
+
+  regionId String
+  region   Region @relation(fields: [regionId], references: [id])
 
   createdAt DateTime @default(now())
 }
@@ -97,9 +121,35 @@ model MarketPrice {
 
   cropType String
 
+  // Stable base price
+
+  basePrice Int
+
+  // Current dynamic price
+
   price Int
+
+  // Supply & demand system
+
+  supply Int @default(100)
+  demand Int @default(100)
+
+  regionId String
+  region   Region @relation(fields: [regionId], references: [id])
 
   updatedAt DateTime @updatedAt
 
-  @@unique([cropType])
+  @@unique([cropType, regionId])
+}
+
+model MarketListing {
+  id String @id @default(cuid())
+
+  cropType String
+  quantity Int
+  price Int
+
+  userId String
+
+  createdAt DateTime @default(now())
 }

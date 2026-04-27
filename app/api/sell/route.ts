@@ -1,134 +1,110 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { EVENTS } from "@/lib/events";
+import { calculatePrice } from "@/lib/pricing";
 
-export async function POST(
-  req: Request
-) {
+export async function POST(req: Request) {
   try {
-    const body =
-      await req.json();
-
-    const {
-      cropType,
-      quantity,
-    } = body;
+    const { cropType, quantity, regionId: targetRegionId } = await req.json();
 
     if (!cropType || !quantity) {
-      return NextResponse.json({
-        message: "Invalid request",
-      });
+      return NextResponse.json({ message: "Invalid request" }, { status: 400 });
     }
 
-    // USER
-
-    const user =
-      await prisma.user.findFirst();
-
+    const user = await prisma.user.findFirst();
     if (!user) {
-      return NextResponse.json({
-        message: "User missing",
-      });
+      return NextResponse.json({ message: "User missing" }, { status: 404 });
     }
 
-    // INVENTORY
+    // Determine target region (check body first for global marketplace selling)
+    let currentRegion = null;
 
-    const inventory =
-      await prisma.inventory.findUnique({
-        where: {
-          userId_cropType: {
-            userId: user.id,
-            cropType,
-          },
-        },
+    if (targetRegionId) {
+      currentRegion = await prisma.region.findUnique({
+        where: { id: targetRegionId }
       });
-
-    if (
-      !inventory ||
-      inventory.quantity <
-        quantity
-    ) {
-      return NextResponse.json({
-        message:
-          "Not enough crops",
-      });
+    } else {
+      const currentRegionId = user.currentRegionId;
+      if (currentRegionId) {
+        currentRegion = await prisma.region.findUnique({
+          where: { id: currentRegionId }
+        });
+      } else {
+        currentRegion = await prisma.region.findFirst({
+          where: { isActive: true }
+        });
+      }
     }
 
-    // MARKET PRICE
-
-    const market =
-      await prisma.marketPrice.findUnique({
-        where: {
-          cropType,
-        },
-      });
-
-    if (!market) {
-      return NextResponse.json({
-        message:
-          "Market price missing",
-      });
+    if (!currentRegion) {
+      return NextResponse.json({ message: "Region missing" }, { status: 404 });
     }
 
-    let price =
-      market.price;
-
-    // EVENT EFFECT
-
-    const timeline =
-      await prisma.timeline.findFirst();
-
-    const year =
-      timeline?.year ?? 1910;
-
-    const event =
-      EVENTS[year];
-
-    if (
-      event?.effects
-        ?.priceMultiplier
-    ) {
-      price =
-        Math.floor(
-          price *
-            event.effects
-              .priceMultiplier
-        );
-    }
-
-    const totalMoney =
-      price * quantity;
-
-    // UPDATE INVENTORY
-
-    await prisma.inventory.update({
+    // Inventory check
+    const inventory = await prisma.inventory.findUnique({
       where: {
         userId_cropType: {
           userId: user.id,
           cropType,
         },
       },
-      data: {
-        quantity: {
-          decrement:
-            quantity,
-        },
-      },
     });
 
-    // UPDATE MONEY
+    if (!inventory || inventory.quantity < quantity) {
+      return NextResponse.json({ message: "Not enough crops" }, { status: 400 });
+    }
 
-    await prisma.user.update({
+    // Market Price for current region
+    const market = await prisma.marketPrice.findUnique({
       where: {
-        id: user.id,
-      },
-      data: {
-        money: {
-          increment:
-            totalMoney,
+        cropType_regionId: {
+          cropType,
+          regionId: currentRegion.id,
         },
       },
     });
+
+    if (!market) {
+      return NextResponse.json({ message: "Market price missing for this region" }, { status: 404 });
+    }
+
+    const totalMoney = market.price * quantity;
+    const newSupply = market.supply + quantity;
+
+    // Get event multiplier for price recalculation
+    const timeline = await prisma.timeline.findFirst();
+    const event = EVENTS[timeline?.year ?? 1910];
+    let eventMultiplier = 1.0;
+    if (event && (!event.regions || event.regions.includes(currentRegion.name))) {
+      eventMultiplier = event.effects.priceMultiplier ?? 1.0;
+    }
+
+    const newPrice = calculatePrice(
+      market.basePrice,
+      newSupply,
+      market.demand,
+      currentRegion.priceMultiplier,
+      eventMultiplier
+    );
+
+    // Update Inventory, User Money, and Market in a transaction
+    await prisma.$transaction([
+      prisma.inventory.update({
+        where: { id: inventory.id },
+        data: { quantity: { decrement: quantity } },
+      }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { money: { increment: totalMoney } },
+      }),
+      prisma.marketPrice.update({
+        where: { id: market.id },
+        data: { 
+          supply: newSupply,
+          price: newPrice 
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       message: `Sold ${quantity} ${cropType} for $${totalMoney}`,
@@ -136,10 +112,6 @@ export async function POST(
 
   } catch (error) {
     console.error(error);
-
-    return NextResponse.json(
-      { message: "Sell failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Sell failed" }, { status: 500 });
   }
-}
+}

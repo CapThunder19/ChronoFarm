@@ -1,25 +1,21 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { CROPS } from "@/lib/crops";
 import { EVENTS } from "@/lib/events";
+import { calculatePrice } from "@/lib/pricing";
 
 export async function POST() {
   try {
-    const timeline =
-      await prisma.timeline.findFirst();
+    const timeline = await prisma.timeline.findFirst();
 
-    if (!timeline)
-      return NextResponse.json({
-        error: "Timeline missing",
-      });
+    if (!timeline) {
+      return NextResponse.json({ error: "Timeline missing" }, { status: 404 });
+    }
 
     const newYear = timeline.year + 1;
     const event = EVENTS[newYear];
-    const multiplier = event?.effects?.priceMultiplier ?? 1.0;
-    const demandCrops = event?.effects?.demand ?? [];
 
     await prisma.$transaction(async (tx) => {
-      // Update timeline
+      // 1. Update timeline
       await tx.timeline.update({
         where: { id: timeline.id },
         data: {
@@ -28,27 +24,31 @@ export async function POST() {
         },
       });
 
-      // Update Market Prices
-      const currentPrices = await tx.marketPrice.findMany();
-      for (const item of currentPrices) {
-        const cropInfo = CROPS[item.cropType];
-        if (!cropInfo) continue;
+      // 2. Fetch all regions and prices to update them
+      const prices = await tx.marketPrice.findMany({
+        include: { region: true }
+      });
 
-        // Base price with some random drift
-        const base = cropInfo.reward;
-        const drift = 1 + (Math.random() * 0.4 - 0.2); // +/- 20% random drift
+      for (const item of prices) {
+        let eventMultiplier = 1.0;
         
-        let finalPrice = Math.floor(base * drift * multiplier);
-
-        // Demand bonus
-        if (demandCrops.includes(item.cropType)) {
-          finalPrice = Math.floor(finalPrice * 1.8);
+        // Regional event check
+        if (event) {
+          if (!event.regions || event.regions.includes(item.region.name)) {
+            eventMultiplier = event.effects.priceMultiplier ?? 1.0;
+          }
         }
 
-        if (finalPrice < 1) finalPrice = 1;
+        const finalPrice = calculatePrice(
+          item.basePrice,
+          item.supply,
+          item.demand,
+          item.region.priceMultiplier,
+          eventMultiplier
+        );
 
         await tx.marketPrice.update({
-          where: { cropType: item.cropType },
+          where: { id: item.id },
           data: { price: finalPrice },
         });
       }
@@ -56,12 +56,11 @@ export async function POST() {
 
     return NextResponse.json({
       year: newYear,
-      message: "Year advanced",
+      message: `Advanced to year ${newYear}. ${event ? `Event: ${event.name}` : ""}`,
     });
 
   } catch (error) {
     console.error(error);
-
     return NextResponse.json(
       { error: "Failed to advance time" },
       { status: 500 }
