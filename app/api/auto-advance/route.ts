@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { syncProgression } from "@/lib/progression";
 
 export async function POST() {
   try {
@@ -26,8 +27,8 @@ export async function POST() {
       });
     }
 
-    const newYear =
-      timeline.year + 1;
+    const synced = await syncProgression(prisma);
+    const newYear = synced.year;
 
     await prisma.timeline.update({
       where: {
@@ -40,7 +41,7 @@ export async function POST() {
     });
 
     return NextResponse.json({
-      message: "Year auto advanced",
+      message: "Year synced to farm progression",
       year: newYear,
     });
 

@@ -1,10 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { CROPS } from "@/lib/crops";
-import { syncProgression } from "@/lib/progression";
+import { syncProgressionForFarm } from "@/lib/progression";
+import { getWalletAddressFromRequest } from "@/lib/wallet";
+import { ensureWalletUser } from "@/lib/world";
 
 export async function POST(req: Request) {
   try {
+    const walletAddress = getWalletAddressFromRequest(req);
+    if (!walletAddress) {
+      return NextResponse.json({ error: "Wallet address is required" }, { status: 401 });
+    }
+
     const body = await req.json();
 
     const { tileIndex } = body;
@@ -19,7 +26,7 @@ export async function POST(req: Request) {
     const now = new Date();
 
     // Determine player's farm for current region and find crop on that tile
-    const user = await prisma.user.findFirst();
+    const user = await ensureWalletUser(prisma, walletAddress);
     const farm = user?.currentRegionId
       ? await prisma.farm.findFirst({ where: { userId: user.id, regionId: user.currentRegionId } })
       : await prisma.farm.findFirst({ where: { userId: user?.id } });
@@ -78,7 +85,7 @@ export async function POST(req: Request) {
     await prisma.farm.update({ where: { id: farmByCrop.id }, data: { xp: { increment: 5 } } });
 
     // Sync farm level and timeline immediately when XP changes
-    await syncProgression(prisma);
+    await syncProgressionForFarm(prisma, farmByCrop.id);
 
     return NextResponse.json({ message: `Harvested 1 ${cropConfig.name}` });
 

@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import { CROPS } from "@/lib/crops";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useDisconnect } from "wagmi";
+import { clearWalletSession, getStoredWalletAddress } from "@/lib/wallet-session";
 
 export default function MarketplacePage() {
+  const router = useRouter();
+  const { disconnectAsync } = useDisconnect();
   const [money, setMoney] = useState(0);
   const [year, setYear] = useState(1910);
   const [event, setEvent] = useState<any>(null);
@@ -14,11 +19,33 @@ export default function MarketplacePage() {
   const [marketPrices, setMarketPrices] = useState<any[]>([]);
   const [npcs, setNpcs] = useState<any[]>([]);
   const [message, setMessage] = useState("");
+  const [walletAddress, setWalletAddress] = useState("");
+
+  const walletFetch = async (url: string, options?: RequestInit) => {
+    const wallet = walletAddress || getStoredWalletAddress();
+    if (!wallet) {
+      router.push("/");
+      throw new Error("Wallet missing");
+    }
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options?.headers ?? {}),
+        "x-wallet-address": wallet,
+      },
+    });
+  };
 
   const loadMarketData = async () => {
     try {
-      const res = await fetch("/api/status");
+      const res = await walletFetch("/api/status");
       const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.error || "Failed to load market data");
+        return;
+      }
 
       setMoney(data.money);
       setYear(data.year);
@@ -39,7 +66,7 @@ export default function MarketplacePage() {
   // We need an API that returns ALL regional market data
   const loadAllMarkets = async () => {
     try {
-      const res = await fetch("/api/markets");
+      const res = await walletFetch("/api/markets");
       const data = await res.json();
       setNpcs(data.npcs || []);
       setMarketPrices(data.prices || []);
@@ -50,13 +77,25 @@ export default function MarketplacePage() {
 
   const updatePrices = async () => {
     try {
-      await fetch("/api/update-prices", { method: "POST" });
+      await walletFetch("/api/update-prices", { method: "POST" });
     } catch (err) {
       console.error("Failed to update prices", err);
     }
   };
 
   useEffect(() => {
+    const wallet = getStoredWalletAddress();
+    if (!wallet) {
+      router.push("/");
+      return;
+    }
+
+    setWalletAddress(wallet);
+  }, [router]);
+
+  useEffect(() => {
+    if (!walletAddress) return;
+
     loadMarketData();
     loadAllMarkets();
     
@@ -73,10 +112,21 @@ export default function MarketplacePage() {
         clearInterval(statusInterval);
         clearInterval(priceInterval);
     };
-  }, []);
+  }, [walletAddress]);
+
+  const handleLogout = async () => {
+    try {
+      await disconnectAsync();
+    } catch (error) {
+      console.error("Failed to disconnect wallet", error);
+    } finally {
+      clearWalletSession();
+      router.push("/");
+    }
+  };
 
   const sellCropToRegion = async (cropType: string, regionId: string) => {
-    const res = await fetch("/api/sell", {
+    const res = await walletFetch("/api/sell", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cropType, quantity: 1, regionId }),
@@ -101,6 +151,11 @@ export default function MarketplacePage() {
                 <h1 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent">
                   GLOBAL EXCHANGE
                 </h1>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-zinc-500">
+              <Link href="/section" className="hover:text-white transition-colors">Section</Link>
+              <span className="text-zinc-800">/</span>
+              <button onClick={handleLogout} className="hover:text-white transition-colors">Logout</button>
             </div>
             <div className="flex items-center gap-6">
               <div className="flex flex-col">

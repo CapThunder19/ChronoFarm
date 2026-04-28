@@ -1,14 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { EVENTS } from "@/lib/events";
-import { syncProgression } from "@/lib/progression";
+import { syncProgressionForFarm } from "@/lib/progression";
+import { getWalletAddressFromRequest } from "@/lib/wallet";
+import { ensureWalletUser } from "@/lib/world";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // Keep the timeline aligned with the current XP/level state.
-    await syncProgression(prisma);
+    const walletAddress = getWalletAddressFromRequest(req);
+    if (!walletAddress) {
+      return NextResponse.json({ error: "Wallet address is required" }, { status: 401 });
+    }
+
+    const walletUser = await ensureWalletUser(prisma, walletAddress);
 
     const user = await prisma.user.findFirst({
+      where: {
+        id: walletUser.id,
+      },
       include: {
         inventory: true,
         farms: {
@@ -19,10 +28,6 @@ export async function GET() {
         },
       },
     });
-
-    const timeline = await prisma.timeline.findFirst();
-    const year = timeline?.year ?? 1910;
-    const event = EVENTS[year] ?? null;
 
     // Determine current region
     const currentRegionId = user?.currentRegionId;
@@ -55,23 +60,17 @@ export async function GET() {
         })
       : null;
 
-    if (!user) {
-      return NextResponse.json({
-        money: 0,
-        crops: [],
-        tiles: [],
-        inventory: [],
-        prices: [],
-        year,
-        event,
-        regions,
-        currentRegion,
-        npc,
-      });
+    const farm = currentRegion ? user?.farms.find((f: any) => f.regionId === currentRegion.id) : user?.farms[0];
+
+    if (!user || !farm) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Pick the farm for the current region
-    const farm = currentRegion ? user.farms.find((f: any) => f.regionId === currentRegion.id) : user.farms[0];
+    // Keep the timeline aligned with the active farm only.
+    const synced = await syncProgressionForFarm(prisma, farm.id);
+    const timeline = await prisma.timeline.findFirst();
+    const syncedYear = synced.year;
+    const event = EVENTS[syncedYear] ?? null;
 
     return NextResponse.json({
       money: user.money,
@@ -82,7 +81,7 @@ export async function GET() {
       tiles: farm?.tiles ?? [],
       inventory: user.inventory ?? [],
       prices,
-      year,
+      year: syncedYear,
       lastAdvanced: timeline?.lastAdvanced ?? null,
       event,
       regions,

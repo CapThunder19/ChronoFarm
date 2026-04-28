@@ -2,17 +2,24 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { EVENTS } from "@/lib/events";
 import { calculatePrice } from "@/lib/pricing";
-import { syncProgression } from "@/lib/progression";
+import { syncProgressionForFarm } from "@/lib/progression";
+import { getWalletAddressFromRequest } from "@/lib/wallet";
+import { ensureWalletUser } from "@/lib/world";
 
 export async function POST(req: Request) {
   try {
+    const walletAddress = getWalletAddressFromRequest(req);
+    if (!walletAddress) {
+      return NextResponse.json({ error: "Wallet address is required" }, { status: 401 });
+    }
+
     const { cropType, quantity, regionId: targetRegionId } = await req.json();
 
     if (!cropType || !quantity) {
       return NextResponse.json({ message: "Invalid request" }, { status: 400 });
     }
 
-    const user = await prisma.user.findFirst();
+    const user = await ensureWalletUser(prisma, walletAddress);
     if (!user) {
       return NextResponse.json({ message: "User missing" }, { status: 404 });
     }
@@ -122,7 +129,7 @@ export async function POST(req: Request) {
     }
 
     // Sync farm level and timeline immediately when XP changes
-    await syncProgression(prisma);
+    await syncProgressionForFarm(prisma, farm?.id ?? "");
 
     return NextResponse.json({
       message: `Sold ${quantity} ${cropType} for $${totalMoney}`,

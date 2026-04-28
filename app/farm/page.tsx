@@ -4,8 +4,13 @@ import { useEffect, useState } from "react";
 import { CROPS } from "@/lib/crops";
 import { EVENTS } from "@/lib/events";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useDisconnect } from "wagmi";
+import { clearWalletSession, getStoredWalletAddress } from "@/lib/wallet-session";
 
 export default function FarmPage() {
+  const router = useRouter();
+  const { disconnectAsync } = useDisconnect();
   const [money, setMoney] = useState(0);
   const [year, setYear] = useState(1910);
   const [lastAdvanced, setLastAdvanced] = useState<string>(new Date().toISOString());
@@ -25,13 +30,36 @@ export default function FarmPage() {
   const [level, setLevel] = useState(1);
   const [xp, setXp] = useState(0);
   const [farmsState, setFarmsState] = useState<any[]>([]);
+  const [walletAddress, setWalletAddress] = useState("");
+
+  const walletFetch = async (url: string, options?: RequestInit) => {
+    const wallet = walletAddress || getStoredWalletAddress();
+    if (!wallet) {
+      setMessage("Connect wallet first.");
+      router.push("/");
+      throw new Error("Wallet missing");
+    }
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options?.headers ?? {}),
+        "x-wallet-address": wallet,
+      },
+    });
+  };
 
   // ---------------- LOAD STATUS ----------------
 
   const loadStatus = async () => {
     try {
-      const res = await fetch("/api/status");
+      const res = await walletFetch("/api/status");
       const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.error || "Failed to load status");
+        return;
+      }
 
       setMoney(data.money ?? 0);
       setYear(data.year ?? 1910);
@@ -56,13 +84,25 @@ export default function FarmPage() {
 
   const updatePrices = async () => {
     try {
-      await fetch("/api/update-prices", { method: "POST" });
+      await walletFetch("/api/update-prices", { method: "POST" });
     } catch (err) {
       console.error("Failed to update prices", err);
     }
   };
 
   useEffect(() => {
+    const wallet = getStoredWalletAddress();
+    if (!wallet) {
+      router.push("/");
+      return;
+    }
+
+    setWalletAddress(wallet);
+  }, [router]);
+
+  useEffect(() => {
+    if (!walletAddress) return;
+
     loadStatus();
 
     // Refresh game state every second
@@ -75,12 +115,23 @@ export default function FarmPage() {
       clearInterval(statusInterval);
       clearInterval(priceInterval);
     };
-  }, []);
+  }, [walletAddress]);
+
+  const handleLogout = async () => {
+    try {
+      await disconnectAsync();
+    } catch (error) {
+      console.error("Failed to disconnect wallet", error);
+    } finally {
+      clearWalletSession();
+      router.push("/");
+    }
+  };
 
   // ---------------- ADVANCE YEAR ----------------
 
   const advanceTime = async () => {
-    const res = await fetch("/api/advance-time", {
+    const res = await walletFetch("/api/advance-time", {
       method: "POST",
     });
 
@@ -93,7 +144,7 @@ export default function FarmPage() {
 
   const travelTo = async (regionId: string) => {
     try {
-      const res = await fetch("/api/travel", {
+      const res = await walletFetch("/api/travel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ regionId }),
@@ -116,7 +167,7 @@ export default function FarmPage() {
 
     try {
       if (!tile.unlocked) {
-        const res = await fetch("/api/buy-tile", {
+        const res = await walletFetch("/api/buy-tile", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tileIndex: index }),
@@ -131,7 +182,7 @@ export default function FarmPage() {
       const crop = crops.find((c) => c.tileIndex === index);
 
       if (!crop) {
-        const res = await fetch("/api/plant", {
+        const res = await walletFetch("/api/plant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tileIndex: index, type: selectedCrop }),
@@ -140,7 +191,7 @@ export default function FarmPage() {
         const data = await res.json();
         setMessage(data.message || data.error || "");
       } else {
-        const res = await fetch("/api/harvest", {
+        const res = await walletFetch("/api/harvest", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tileIndex: index }),
@@ -159,7 +210,7 @@ export default function FarmPage() {
   // ---------------- SELL ----------------
 
   const sellCrop = async (cropType: string) => {
-    const res = await fetch("/api/sell", {
+    const res = await walletFetch("/api/sell", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cropType, quantity: 1 }),
@@ -175,7 +226,7 @@ export default function FarmPage() {
   const resetGame = async () => {
     if (!confirm("Are you sure you want to reset EVERYTHING? All progress will be lost.")) return;
 
-    const res = await fetch("/api/reset", { method: "POST" });
+    const res = await walletFetch("/api/reset", { method: "POST" });
     const data = await res.json();
     setMessage(data.message || data.error || "");
     loadStatus();
@@ -251,6 +302,17 @@ export default function FarmPage() {
                   </div>
                 </div>
               )}
+              {walletAddress && (
+                <>
+                  <div className="h-10 w-[1px] bg-zinc-900"></div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Wallet</span>
+                    <h2 className="text-sm font-mono font-bold text-cyan-400">
+                      {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                    </h2>
+                  </div>
+                </>
+              )}
                 <div className="h-10 w-[1px] bg-zinc-900"></div>
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Farm Level</span>
@@ -280,12 +342,26 @@ export default function FarmPage() {
               <span className="text-xl">⚖️</span>
               Marketplace
             </Link>
+            <Link
+              href="/section"
+              className="px-8 py-4 bg-zinc-900 hover:bg-zinc-800 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-zinc-800 shadow-xl active:scale-95 flex items-center gap-3"
+            >
+              <span className="text-xl">💬</span>
+              Section
+            </Link>
             <button
               onClick={() => setShowMap(!showMap)}
               className="px-8 py-4 bg-zinc-900 hover:bg-zinc-800 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-zinc-800 shadow-xl active:scale-95 flex items-center gap-3"
             >
               <span className="text-xl">🗺️</span>
               {showMap ? "Back to Farm" : "World Map"}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-8 py-4 bg-red-500/10 hover:bg-red-500/20 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-red-500/20 shadow-xl active:scale-95 flex items-center gap-3 text-red-300"
+            >
+              <span className="text-xl">🚪</span>
+              Logout
             </button>
             <div className="px-8 py-4 bg-green-600/10 border border-green-500/30 rounded-2xl font-black text-xs uppercase tracking-widest text-green-400 flex items-center gap-3">
               <span className="text-xl">⏩</span>

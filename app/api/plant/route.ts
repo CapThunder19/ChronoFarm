@@ -2,11 +2,18 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { CROPS } from "@/lib/crops";
 import { EVENTS } from "@/lib/events";
+import { getWalletAddressFromRequest } from "@/lib/wallet";
+import { ensureWalletUser } from "@/lib/world";
 
 export async function POST(
   req: Request
 ) {
   try {
+    const walletAddress = getWalletAddressFromRequest(req);
+    if (!walletAddress) {
+      return NextResponse.json({ error: "Wallet address is required" }, { status: 401 });
+    }
+
     const body =
       await req.json();
 
@@ -16,7 +23,7 @@ export async function POST(
     } = body;
 
     // Find the farm for the player's current region
-    const user = await prisma.user.findFirst();
+    const user = await ensureWalletUser(prisma, walletAddress);
     const farm = user?.currentRegionId
       ? await prisma.farm.findFirst({ where: { userId: user.id, regionId: user.currentRegionId } })
       : await prisma.farm.findFirst({ where: { userId: user?.id } });

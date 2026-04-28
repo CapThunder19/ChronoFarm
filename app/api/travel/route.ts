@@ -1,11 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getWalletAddressFromRequest } from "@/lib/wallet";
+import { ensureWalletUser } from "@/lib/world";
 
 export async function POST(req: Request) {
   try {
+    const walletAddress = getWalletAddressFromRequest(req);
+    if (!walletAddress) {
+      return NextResponse.json({ error: "Wallet address is required" }, { status: 401 });
+    }
+
     const { regionId } = await req.json();
 
-    const user = await prisma.user.findFirst();
+    const user = await ensureWalletUser(prisma, walletAddress);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
