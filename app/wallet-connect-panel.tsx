@@ -70,8 +70,89 @@ export default function WalletConnectPanel() {
         Choose any available wallet in the RainbowKit modal. Your account is created automatically after connection.
       </p>
 
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4">
-        <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
+      <div className="flex w-full flex-col">
+        <ConnectButton.Custom>
+          {({ account, chain, openAccountModal, openChainModal, openConnectModal, authenticationStatus, mounted }) => {
+            const ready = mounted && authenticationStatus !== "loading";
+            const connected =
+              ready &&
+              account &&
+              chain &&
+              (!authenticationStatus || authenticationStatus === "authenticated");
+
+            return (
+              <div
+                {...(!ready && {
+                  "aria-hidden": true,
+                  style: {
+                    opacity: 0,
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  },
+                })}
+              >
+                {(() => {
+                  if (!connected) {
+                    return (
+                      <button
+                        onClick={openConnectModal}
+                        type="button"
+                        className="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-cyan-500 px-6 py-4 font-bold text-black transition-all hover:bg-cyan-400 active:scale-[0.98]"
+                      >
+                        <span className="relative z-10 flex items-center gap-2">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          </svg>
+                          Connect Your Wallet
+                        </span>
+                        <div className="absolute inset-0 z-0 bg-gradient-to-r from-cyan-400 via-lime-400 to-cyan-400 opacity-0 transition-opacity duration-500 group-hover:opacity-20" />
+                      </button>
+                    );
+                  }
+
+                  if (chain.unsupported) {
+                    return (
+                      <button
+                        onClick={openChainModal}
+                        type="button"
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/10 px-6 py-4 font-bold text-red-500 transition-all hover:bg-red-500/20"
+                      >
+                        Wrong network
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <div className="flex w-full flex-col gap-3">
+                      <button
+                        onClick={openAccountModal}
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/80 px-5 py-4 transition-all hover:border-zinc-700 hover:bg-zinc-800/80"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-400">
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                          <div className="flex flex-col items-start">
+                            <span className="text-sm font-bold text-white">{account.displayName}</span>
+                            <span className="text-xs text-zinc-500">
+                              {account.displayBalance ? `Balance: ${account.displayBalance}` : "Connected"}
+                            </span>
+                          </div>
+                        </div>
+                        <svg className="h-5 w-5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          }}
+        </ConnectButton.Custom>
       </div>
 
       <div className="mt-5 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100">

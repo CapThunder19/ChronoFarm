@@ -69,6 +69,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Farm not found" }, { status: 404 });
     }
 
+    // Check for TRACTOR passive buff
+    const tractor = await prisma.inventory.findUnique({
+      where: {
+        userId_cropType: {
+          userId: farmByCrop.userId,
+          cropType: "TRACTOR"
+        }
+      }
+    });
+
+    const yieldAmount = (tractor && tractor.quantity > 0) ? 2 : 1;
+
     // Add to inventory
     await prisma.inventory.upsert({
       where: {
@@ -77,8 +89,8 @@ export async function POST(req: Request) {
           cropType: crop.type,
         },
       },
-      update: { quantity: { increment: 1 } },
-      create: { userId: farmByCrop.userId, cropType: crop.type, quantity: 1 },
+      update: { quantity: { increment: yieldAmount } },
+      create: { userId: farmByCrop.userId, cropType: crop.type, quantity: yieldAmount },
     });
 
     // Grant XP for harvesting (small amount)
@@ -87,7 +99,7 @@ export async function POST(req: Request) {
     // Sync farm level and timeline immediately when XP changes
     await syncProgressionForFarm(prisma, farmByCrop.id);
 
-    return NextResponse.json({ message: `Harvested 1 ${cropConfig.name}` });
+    return NextResponse.json({ message: `Harvested ${yieldAmount} ${cropConfig.name}` });
 
   } catch (error) {
     console.error("Harvest error:", error);

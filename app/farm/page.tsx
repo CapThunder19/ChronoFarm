@@ -250,9 +250,8 @@ export default function FarmPage() {
     .sort((a, b) => a - b)
     .map((eventYear, index) => ({ level: index + 1, year: eventYear }));
 
-  // Ensure selected crop is valid for current region and level
   useEffect(() => {
-    const keys = Object.keys(CROPS);
+    const keys = Object.keys(CROPS).filter(k => !CROPS[k].itemType || CROPS[k].itemType === "crop");
     const firstAllowed = keys.find((k) => {
       const cfg = CROPS[k] as any;
       // region check
@@ -335,6 +334,13 @@ export default function FarmPage() {
           </div>
           
           <div className="flex gap-4">
+            <Link
+              href="/crafting"
+              className="px-8 py-4 bg-zinc-900 hover:bg-zinc-800 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-zinc-800 shadow-xl active:scale-95 flex items-center gap-3"
+            >
+              <span className="text-xl">⚙️</span>
+              Crafting
+            </Link>
             <Link
               href="/marketplace"
               className="px-8 py-4 bg-zinc-900 hover:bg-zinc-800 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-zinc-800 shadow-xl active:scale-95 flex items-center gap-3"
@@ -543,7 +549,7 @@ export default function FarmPage() {
                   </div>
                   
                   {/* MARKET PRICES */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {marketPrices.map((p) => (
                       <div key={p.id} className="p-4 bg-black/40 rounded-2xl border border-zinc-800/50 group hover:border-zinc-700 transition-all">
                         <div className="flex justify-between items-center mb-3">
@@ -579,8 +585,8 @@ export default function FarmPage() {
               {/* CROP SELECTOR */}
               <div className="p-6 bg-zinc-900 rounded-3xl border border-zinc-800 shadow-xl">
                 <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-6 block">Select Seed Type</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {Object.keys(CROPS).map((key) => {
+                <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {Object.keys(CROPS).filter(k => !CROPS[k].itemType || CROPS[k].itemType === "crop").map((key) => {
                     const cfg = CROPS[key] as any;
                     const regionLocked = cfg.regions && currentRegion && !cfg.regions.includes(currentRegion.name);
                     const levelLocked = cfg.unlockLevel && (level ?? 1) < cfg.unlockLevel;
@@ -627,7 +633,7 @@ export default function FarmPage() {
                     Storage is currently empty
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {inventory.map((item) => (
                       <div
                         key={item.id}

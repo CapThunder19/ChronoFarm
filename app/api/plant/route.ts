@@ -55,6 +55,12 @@ export async function POST(
         error: "Invalid crop",
       });
 
+    if (cropConfig.itemType && cropConfig.itemType !== "crop") {
+      return NextResponse.json({
+        error: "Cannot plant this item",
+      }, { status: 400 });
+    }
+
     // Check player's current region and ensure crop is available there
     let currentRegion = null;
     if (user?.currentRegionId) {
@@ -91,6 +97,21 @@ export async function POST(
             event.effects
               .growthMultiplier
         );
+    }
+
+    // Check for FERTILIZER passive buff
+    const fertilizer = await prisma.inventory.findUnique({
+      where: {
+        userId_cropType: {
+          userId: user.id,
+          cropType: "FERTILIZER"
+        }
+      }
+    });
+
+    if (fertilizer && fertilizer.quantity > 0) {
+      // 20% growth speed increase
+      growTime = Math.floor(growTime * 0.8);
     }
 
     const now =

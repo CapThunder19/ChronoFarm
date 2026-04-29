@@ -11,6 +11,7 @@ function displayNameForWallet(walletAddress: string) {
 export async function GET() {
   try {
     const offers = await prisma.tradeOffer.findMany({
+      where: { status: "OPEN" },
       orderBy: { createdAt: "desc" },
       take: 50,
     });
@@ -33,9 +34,17 @@ export async function POST(req: Request) {
     const cropType = typeof body?.cropType === "string" ? body.cropType.trim() : "";
     const quantity = Number(body?.quantity);
     const priceCrypto = typeof body?.priceCrypto === "string" ? body.priceCrypto.trim() : "";
-    const currency = typeof body?.currency === "string" && body.currency.trim() ? body.currency.trim().toUpperCase() : "ETH";
+    const currency = "ETH";
+    const parsedPrice = Number(priceCrypto);
 
-    if (!cropType || !Number.isInteger(quantity) || quantity <= 0 || !priceCrypto) {
+    if (
+      !cropType ||
+      !Number.isInteger(quantity) ||
+      quantity <= 0 ||
+      !priceCrypto ||
+      !Number.isFinite(parsedPrice) ||
+      parsedPrice <= 0
+    ) {
       return NextResponse.json({ error: "Crop, quantity, and crypto price are required" }, { status: 400 });
     }
 
@@ -65,7 +74,7 @@ export async function POST(req: Request) {
           displayName: displayNameForWallet(walletAddress),
           cropType,
           quantity,
-          priceCrypto,
+          priceCrypto: parsedPrice.toString(),
           currency,
         },
       });

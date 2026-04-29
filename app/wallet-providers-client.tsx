@@ -9,7 +9,7 @@ import {
   getDefaultWallets,
 } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
-import { mainnet } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 
 export default function WalletProvidersClient({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -25,7 +25,7 @@ export default function WalletProvidersClient({ children }: { children: ReactNod
         appName: "ChronoFarm",
         projectId,
         wallets,
-        chains: [mainnet],
+        chains: [sepolia],
         ssr: true,
       });
     })(),

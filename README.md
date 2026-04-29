@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🕰️ ChronoFarm
 
-## Getting Started
+ChronoFarm is a premium, time-traveling, on-chain farming simulator built on Next.js, Wagmi, and Prisma. Players connect their crypto wallets (using RainbowKit) to plant crops, craft tools, trade resources, and travel across real-world historical eras to build their farming empire. The game uniquely merges traditional idle-farming mechanics with a dynamic global economy powered by regional markets and Web3 integration.
 
-First, run the development server:
+## ✨ Core Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### 🚜 The Farm (Core Loop)
+- **Planting & Harvesting:** Plant a variety of crops (Wheat, Potatoes, Tomatoes, Grapes, etc.) on a 6-plot farming grid. Each crop takes real-time to grow and yields varying amounts of base rewards.
+- **Leveling System:** Gain experience points (XP) for every crop harvested. Leveling up unlocks more advanced crops and allows the player to travel further into different historical eras.
+- **Time Advancing:** Once crops are ready, players can harvest them to add them to their warehouse inventory.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### ⚙️ Engineering Bay (Crafting System)
+- **Raw Materials:** Acquire raw materials like **Wood** and **Iron** from the marketplace or via trading with other players.
+- **Crafting Tools:** Use raw materials to craft specialized tools and upgrades (Wooden Gear, Fertilizer, Tractors).
+- **Passive Buffs:** Crafted items automatically apply passive bonuses to your farm:
+  - **Fertilizer:** Speeds up crop growth time by 20%.
+  - **Tractor:** Doubles (2x) the harvest yield of all crops.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 💰 Global Exchange (Marketplace & Economy)
+- **Dynamic Supply & Demand:** The in-game economy features dynamic pricing based on supply and demand. Every time an item is bought or sold, its regional price adjusts accordingly.
+- **Regional Dealers:** Different regions (Europe, Americas, Asia) have distinct Market Prices and NPCs.
+- **Buy & Sell:** Players can sell their harvested crops to NPC merchants for in-game currency (`$`) or spend their money to buy raw materials and items they cannot grow themselves.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 🌍 Time & Space Travel (The World Map)
+- **Era Progression:** The game progresses through time (starting from 1910). Leveling up advances the timeline, triggering new eras and unique global events.
+- **Global Events:** Dynamic historical events (e.g., "Peaceful Times", "Economic Boom", "Drought") randomly occur, affecting market multipliers and increasing the demand/price of specific crops.
+- **Region Hopping:** Spend in-game currency to travel between continents. Certain crops can only be planted or sold at a premium in specific regions.
 
-## Learn More
+### ⛓️ Global Section (Web3 Trading Hub & Global Chat)
+- **Real-Time Multiplayer Chat:** A globally synced chat room where all players can communicate, strategize, and negotiate trades.
+- **On-Chain Player-to-Player Trading:** Players can list their warehouse inventory (crops, raw materials, crafted tools) for sale using **Sepolia ETH**.
+- **Smart Contract Settlement:** Buyers execute a real Web3 transaction on the Sepolia Testnet. Once the transaction is confirmed, ChronoFarm securely transfers the items to the buyer's inventory, completely bridging off-chain game state with on-chain value transfer.
 
-To learn more about Next.js, take a look at the following resources:
+## 🛠️ Technology Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Frontend:** Next.js 15 (App Router), React, Tailwind CSS
+- **Backend/API:** Next.js Serverless Route Handlers
+- **Database:** PostgreSQL (managed via Prisma ORM)
+- **Web3 Integration:** Wagmi, Viem, RainbowKit
+- **Styling:** Highly-polished, glassmorphic UI with custom animations and dynamic dark-mode aesthetics.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🚀 Getting Started
 
-## Deploy on Vercel
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. **Database Setup:**
+   Ensure your PostgreSQL database URL is set in the `.env` file, then run:
+   ```bash
+   npx prisma db push
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. **Start the Development Server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Play:**
+   Open [http://localhost:3000](http://localhost:3000) in your browser. Connect your Web3 wallet (MetaMask, Phantom, etc.) on the Sepolia network to begin playing!

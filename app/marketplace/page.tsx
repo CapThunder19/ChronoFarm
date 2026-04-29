@@ -292,17 +292,41 @@ export default function MarketplacePage() {
                                                 ></div>
                                             </div>
 
-                                            <button 
-                                                disabled={inStock === 0}
-                                                onClick={() => sellCropToRegion(price.cropType, region.id)}
-                                                className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                                                    inStock > 0 
-                                                        ? "bg-zinc-100 hover:bg-white text-black active:scale-95 shadow-lg" 
-                                                        : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
-                                                }`}
-                                            >
-                                                {inStock > 0 ? `Sell 1 Unit ($${price.price})` : "No Stock"}
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    disabled={money < price.price}
+                                                    onClick={async () => {
+                                                        const res = await walletFetch("/api/buy", {
+                                                            method: "POST",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({ cropType: price.cropType, quantity: 1, regionId: region.id }),
+                                                        });
+                                                        const data = await res.json();
+                                                        setMessage(data.message || data.error || "");
+                                                        loadMarketData();
+                                                        loadAllMarkets();
+                                                    }}
+                                                    className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                                        money >= price.price 
+                                                            ? "bg-blue-500 hover:bg-blue-400 text-black active:scale-95 shadow-lg" 
+                                                            : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+                                                    }`}
+                                                >
+                                                    Buy 1 ($${price.price})
+                                                </button>
+                                                
+                                                <button 
+                                                    disabled={inStock === 0}
+                                                    onClick={() => sellCropToRegion(price.cropType, region.id)}
+                                                    className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                                                        inStock > 0 
+                                                            ? "bg-zinc-100 hover:bg-white text-black active:scale-95 shadow-lg" 
+                                                            : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+                                                    }`}
+                                                >
+                                                    {inStock > 0 ? "Sell 1" : "No Stock"}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 )

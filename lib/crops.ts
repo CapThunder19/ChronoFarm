@@ -1,6 +1,6 @@
 export const CROPS: Record<
   string,
-  { name: string; emoji: string; growTime: number; reward: number; regions?: string[]; unlockLevel?: number }
+  { name: string; emoji: string; growTime: number; reward: number; regions?: string[]; unlockLevel?: number; itemType?: "crop" | "raw" | "crafted" }
 > = {
   WHEAT: {
     name: "Wheat",
@@ -100,5 +100,55 @@ export const CROPS: Record<
     reward: 22,
     regions: ["Americas", "Asia"],
     unlockLevel: 2,
+    itemType: "crop",
+  },
+
+  // Raw Materials
+  WOOD: {
+    name: "Wood",
+    emoji: "🪵",
+    growTime: 0,
+    reward: 5,
+    regions: ["Europe", "Americas", "Asia"],
+    unlockLevel: 1,
+    itemType: "raw",
+  },
+  IRON: {
+    name: "Iron",
+    emoji: "⛏️",
+    growTime: 0,
+    reward: 15,
+    regions: ["Europe", "Americas"],
+    unlockLevel: 2,
+    itemType: "raw",
+  },
+
+  // Crafted Items
+  WOODEN_GEAR: {
+    name: "Wooden Gear",
+    emoji: "⚙️",
+    growTime: 0,
+    reward: 25,
+    regions: ["Europe", "Americas", "Asia"],
+    unlockLevel: 1,
+    itemType: "crafted",
+  },
+  FERTILIZER: {
+    name: "Fertilizer",
+    emoji: "🧪",
+    growTime: 0,
+    reward: 40,
+    regions: ["Europe", "Americas", "Asia"],
+    unlockLevel: 1,
+    itemType: "crafted",
+  },
+  TRACTOR: {
+    name: "Tractor",
+    emoji: "🚜",
+    growTime: 0,
+    reward: 200,
+    regions: ["Europe", "Americas", "Asia"],
+    unlockLevel: 2,
+    itemType: "crafted",
   },
 };
