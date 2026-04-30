@@ -1,11 +1,20 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-const connectionString = process.env.DATABASE_URL!;
+import { Pool } from "pg";
 
-const adapter = new PrismaPg({
+// Ensure we don't have conflicting ssl modes in the connection string
+const connectionString = process.env.DATABASE_URL!
+  .replace("sslmode=require", "")
+  .replace("&&", "&")
+  .replace("?&", "?");
+
+const pool = new Pool({
   connectionString,
+  ssl: { rejectUnauthorized: false },
 });
+
+const adapter = new PrismaPg(pool);
 
 declare global {
   var prisma: PrismaClient | undefined;

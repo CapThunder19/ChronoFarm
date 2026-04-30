@@ -40,14 +40,11 @@ async function createDefaultRegions(prisma: PrismaClient): Promise<Region[]> {
 }
 
 async function ensureTimeline(prisma: PrismaClient) {
-  const timeline = await prisma.timeline.findFirst();
-  if (!timeline) {
-    await prisma.timeline.create({
-      data: {
-        year: 1910,
-      },
-    });
-  }
+  await prisma.timeline.upsert({
+    where: { id: 1 },
+    update: {},
+    create: { year: 1910 },
+  });
 }
 
 async function ensureRegionalMarket(prisma: PrismaClient, regions: Region[]) {
