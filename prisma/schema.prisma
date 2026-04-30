@@ -11,8 +11,6 @@ model User {
   name      String
   money     Int      @default(100)
 
-  // Current region (for travel system)
-
   currentRegionId String?
   currentRegion   Region? @relation(fields: [currentRegionId], references: [id])
 
@@ -30,7 +28,6 @@ model Farm {
   userId String
   user   User @relation(fields: [userId], references: [id])
 
-  // Associate a farm with a region so each region can have its own farm
   regionId String?
   region   Region? @relation(fields: [regionId], references: [id])
 
@@ -97,14 +94,9 @@ model Region {
 
   description String
 
-  // Region economic modifier
-
   priceMultiplier Float @default(1)
 
-  // Active region (for single-player mode)
-
   isActive Boolean @default(false)
-  // Level at which this region unlocks
   unlockLevel Int @default(1)
 
   users User[]
@@ -131,15 +123,9 @@ model MarketPrice {
 
   cropType String
 
-  // Stable base price
-
   basePrice Int
 
-  // Current dynamic price
-
   price Int
-
-  // Supply & demand system
 
   supply Int @default(100)
   demand Int @default(100)
