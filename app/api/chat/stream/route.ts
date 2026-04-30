@@ -67,7 +67,7 @@ export async function GET(req: Request) {
         sendChunk({ messages: latest.reverse() });
         intervalId = setInterval(() => {
           void tick();
-        }, 1500);
+        }, 3000);
       })();
 
       req.signal.addEventListener("abort", () => {

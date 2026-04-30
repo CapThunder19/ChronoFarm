@@ -3,6 +3,7 @@ import { EVENTS } from "@/lib/events";
 type PrismaLike = {
   farm: {
     findMany: () => Promise<Array<{ id: string; xp: number | null; level: number | null }>>;
+    findUnique?: (args: { where: { id: string } }) => Promise<{ id: string; xp: number | null; level: number | null } | null>;
     update: (args: { where: { id: string }; data: { level?: number } }) => Promise<unknown>;
   };
   timeline: {
@@ -57,8 +58,9 @@ export async function syncProgression(db: PrismaLike) {
 }
 
 export async function syncProgressionForFarm(db: PrismaLike, farmId: string) {
-  const farms = await db.farm.findMany();
-  let targetFarm = farms.find((farm) => farm.id === farmId) ?? farms[0];
+  const targetFarm = db.farm.findUnique
+    ? await db.farm.findUnique({ where: { id: farmId } })
+    : (await db.farm.findMany()).find((farm) => farm.id === farmId) ?? null;
   let targetLevel = 1;
 
   if (targetFarm) {
@@ -67,10 +69,9 @@ export async function syncProgressionForFarm(db: PrismaLike, farmId: string) {
 
     if ((targetFarm.level ?? 1) !== newLevel) {
       await db.farm.update({ where: { id: targetFarm.id }, data: { level: newLevel } });
-      targetFarm = { ...targetFarm, level: newLevel };
     }
 
-    targetLevel = targetFarm.level ?? 1;
+    targetLevel = newLevel;
   }
 
   const timeline = await db.timeline.findFirst();

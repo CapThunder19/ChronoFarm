@@ -71,6 +71,7 @@ export default function SectionPage() {
   });
   const [buyingOfferId, setBuyingOfferId] = useState("");
   const [status, setStatus] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   const walletFetch = useCallback(async (url: string, options?: RequestInit) => {
     const wallet = walletAddress || getStoredWalletAddress();
@@ -127,11 +128,11 @@ export default function SectionPage() {
     }
 
     queueMicrotask(() => {
-      void loadBoard();
+      loadBoard().finally(() => setIsLoading(false));
     });
     const interval = setInterval(() => {
       void loadBoard();
-    }, 4000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [walletAddress, loadBoard]);
@@ -283,6 +284,17 @@ export default function SectionPage() {
       setBuyingOfferId("");
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-2 border-zinc-700 border-t-white rounded-full animate-spin mx-auto" />
+          <p className="text-zinc-500 text-sm font-mono uppercase tracking-widest">Loading Section...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050505] text-zinc-100">

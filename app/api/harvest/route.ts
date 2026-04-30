@@ -42,6 +42,10 @@ export async function POST(req: Request) {
       },
     });
 
+    if (!farm) {
+      return NextResponse.json({ error: "Farm not found" }, { status: 404 });
+    }
+
     if (!crop) {
       return NextResponse.json({
         message: "Crop not ready yet",
@@ -58,22 +62,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const reward = cropConfig.reward;
-
     // Delete crop → tile becomes empty
     await prisma.crop.delete({ where: { id: crop.id } });
-
-    // Find farm associated with this crop (should match player's farm)
-    const farmByCrop = await prisma.farm.findUnique({ where: { id: crop.farmId } });
-    if (!farmByCrop) {
-      return NextResponse.json({ error: "Farm not found" }, { status: 404 });
-    }
 
     // Check for TRACTOR passive buff
     const tractor = await prisma.inventory.findUnique({
       where: {
         userId_cropType: {
-          userId: farmByCrop.userId,
+          userId: farm.userId,
           cropType: "TRACTOR"
         }
       }
@@ -83,21 +79,16 @@ export async function POST(req: Request) {
 
     // Add to inventory
     await prisma.inventory.upsert({
-      where: {
-        userId_cropType: {
-          userId: farmByCrop.userId,
-          cropType: crop.type,
-        },
-      },
+      where: { userId_cropType: { userId: farm.userId, cropType: crop.type } },
       update: { quantity: { increment: yieldAmount } },
-      create: { userId: farmByCrop.userId, cropType: crop.type, quantity: yieldAmount },
+      create: { userId: farm.userId, cropType: crop.type, quantity: yieldAmount },
     });
 
     // Grant XP for harvesting (small amount)
-    await prisma.farm.update({ where: { id: farmByCrop.id }, data: { xp: { increment: 5 } } });
+    await prisma.farm.update({ where: { id: farm.id }, data: { xp: { increment: 5 } } });
 
     // Sync farm level and timeline immediately when XP changes
-    await syncProgressionForFarm(prisma, farmByCrop.id);
+    await syncProgressionForFarm(prisma, farm.id);
 
     return NextResponse.json({ message: `Harvested ${yieldAmount} ${cropConfig.name}` });
 

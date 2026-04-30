@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CROPS } from "@/lib/crops";
 import { EVENTS } from "@/lib/events";
 import Link from "next/link";
@@ -31,6 +31,11 @@ export default function FarmPage() {
   const [xp, setXp] = useState(0);
   const [farmsState, setFarmsState] = useState<any[]>([]);
   const [walletAddress, setWalletAddress] = useState("");
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [isActionPending, setIsActionPending] = useState(false);
+  const statusInFlight = useRef(false);
+  const pricesInFlight = useRef(false);
+  const initialLoadRef = useRef(true);
 
   const walletFetch = async (url: string, options?: RequestInit) => {
     const wallet = walletAddress || getStoredWalletAddress();
@@ -51,7 +56,15 @@ export default function FarmPage() {
 
   // ---------------- LOAD STATUS ----------------
 
-  const loadStatus = async () => {
+  const loadStatus = async (options?: { force?: boolean }) => {
+    if (statusInFlight.current && !options?.force) {
+      return;
+    }
+
+    statusInFlight.current = true;
+    if (initialLoadRef.current) {
+      setIsBootstrapping(true);
+    }
     try {
       const res = await walletFetch("/api/status");
       const data = await res.json();
@@ -77,16 +90,29 @@ export default function FarmPage() {
       setFarmsState(data.farms ?? []);
     } catch (err) {
       console.error("Failed to load status", err);
+    } finally {
+      statusInFlight.current = false;
+      if (initialLoadRef.current) {
+        initialLoadRef.current = false;
+        setIsBootstrapping(false);
+      }
     }
   };
 
   // ---------------- UPDATE PRICES ----------------
 
-  const updatePrices = async () => {
+  const updatePrices = async (options?: { force?: boolean }) => {
+    if (pricesInFlight.current && !options?.force) {
+      return;
+    }
+
+    pricesInFlight.current = true;
     try {
       await walletFetch("/api/update-prices", { method: "POST" });
     } catch (err) {
       console.error("Failed to update prices", err);
+    } finally {
+      pricesInFlight.current = false;
     }
   };
 
@@ -103,13 +129,17 @@ export default function FarmPage() {
   useEffect(() => {
     if (!walletAddress) return;
 
-    loadStatus();
+    void loadStatus({ force: true });
 
-    // Refresh game state every second
-    const statusInterval = setInterval(loadStatus, 1000);
-    
-    // Auto-update prices every second from frontend as requested
-    const priceInterval = setInterval(updatePrices, 1000);
+    // Refresh game state every 15 seconds
+    const statusInterval = setInterval(() => {
+      void loadStatus();
+    }, 15000);
+
+    // Auto-update prices every 60 seconds
+    const priceInterval = setInterval(() => {
+      void updatePrices();
+    }, 60000);
 
     return () => {
       clearInterval(statusInterval);
@@ -137,7 +167,7 @@ export default function FarmPage() {
 
     const data = await res.json();
     setMessage(data.message || data.error || "");
-    loadStatus();
+    void loadStatus({ force: true });
   };
 
   // ---------------- TRAVEL ----------------
@@ -151,7 +181,7 @@ export default function FarmPage() {
       });
       const data = await res.json();
       setMessage(data.message || data.error || "");
-      loadStatus();
+      void loadStatus({ force: true });
       setShowMap(false);
     } catch (err) {
       setMessage("Travel failed");
@@ -162,8 +192,10 @@ export default function FarmPage() {
 
   const handleTileClick = async (index: number) => {
     const tile = tiles.find((t) => t.index === index);
-
     if (!tile) return;
+    if (isActionPending) return;
+
+    setIsActionPending(true);
 
     try {
       if (!tile.unlocked) {
@@ -172,53 +204,113 @@ export default function FarmPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tileIndex: index }),
         });
-
         const data = await res.json();
         setMessage(data.message || data.error || "");
-        loadStatus();
+        if (res.ok) {
+          // Optimistic: unlock the tile immediately
+          setTiles(prev => prev.map(t => t.index === index ? { ...t, unlocked: true } : t));
+        }
+        void loadStatus({ force: true });
         return;
       }
 
       const crop = crops.find((c) => c.tileIndex === index);
 
       if (!crop) {
+        // Optimistic: show crop immediately
+        const cropCfg = CROPS[selectedCrop];
+        const now = Date.now();
+        const tempCrop = {
+          id: `temp-${index}`,
+          type: selectedCrop,
+          tileIndex: index,
+          plantedAt: new Date().toISOString(),
+          readyAt: new Date(now + (cropCfg?.growTime || 10000)).toISOString(),
+        };
+        setCrops(prev => [...prev, tempCrop]);
+
         const res = await walletFetch("/api/plant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tileIndex: index, type: selectedCrop }),
         });
-
         const data = await res.json();
         setMessage(data.message || data.error || "");
+        if (!res.ok) {
+          // Revert optimistic crop on failure
+          setCrops(prev => prev.filter(c => c.id !== `temp-${index}`));
+        } else {
+          // Replace temp with real data
+          void loadStatus({ force: true });
+        }
       } else {
+        const status = new Date(crop.readyAt) <= new Date() ? "Ready" : "Growing";
+        if (status !== "Ready") {
+          setMessage("Crop not ready yet");
+          return;
+        }
+
+        // Optimistic: remove crop and add to inventory
+        const cropCfg = CROPS[crop.type];
+        setCrops(prev => prev.filter(c => c.tileIndex !== index));
+        setInventory(prev => {
+          const existing = prev.find(i => i.cropType === crop.type);
+          if (existing) return prev.map(i => i.cropType === crop.type ? { ...i, quantity: i.quantity + 1 } : i);
+          return [...prev, { id: `inv-temp-${crop.type}`, cropType: crop.type, quantity: 1 }];
+        });
+        setMessage(`Harvested ${cropCfg?.name || crop.type}!`);
+
         const res = await walletFetch("/api/harvest", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tileIndex: index }),
         });
-
         const data = await res.json();
-        setMessage(data.message || data.error || "");
+        if (!res.ok) {
+          setMessage(data.message || data.error || "Harvest failed");
+          void loadStatus({ force: true });
+        } else {
+          setMessage(data.message || `Harvested ${cropCfg?.name}!`);
+          // Sync real state in background
+          void loadStatus();
+        }
       }
-
-      loadStatus();
     } catch {
       setMessage("Action failed");
+      void loadStatus({ force: true });
+    } finally {
+      setIsActionPending(false);
     }
   };
 
   // ---------------- SELL ----------------
 
   const sellCrop = async (cropType: string) => {
+    // Get current market price for optimistic money update
+    const priceEntry = marketPrices.find(p => p.cropType === cropType);
+    const salePrice = priceEntry?.price ?? 0;
+
+    // Optimistic: decrement inventory and add money
+    setInventory(prev => prev
+      .map(i => i.cropType === cropType ? { ...i, quantity: i.quantity - 1 } : i)
+      .filter(i => i.quantity > 0)
+    );
+    if (salePrice > 0) setMoney(prev => prev + salePrice);
+
     const res = await walletFetch("/api/sell", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cropType, quantity: 1 }),
     });
-
     const data = await res.json();
     setMessage(data.message || data.error || "");
-    loadStatus();
+    if (!res.ok) {
+      // Revert on failure
+      void loadStatus({ force: true });
+    } else {
+      // Sync in background (non-blocking)
+      void loadStatus();
+    }
   };
 
   // ---------------- RESET ----------------
@@ -229,7 +321,7 @@ export default function FarmPage() {
     const res = await walletFetch("/api/reset", { method: "POST" });
     const data = await res.json();
     setMessage(data.message || data.error || "");
-    loadStatus();
+    void loadStatus({ force: true });
   };
 
   // ---------------- TIMER ----------------
@@ -273,6 +365,13 @@ export default function FarmPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-zinc-100 p-8 font-sans selection:bg-green-500/30">
+      {isBootstrapping && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/90 px-6 py-4 text-sm font-bold uppercase tracking-widest text-zinc-200">
+            Loading farm...
+          </div>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto">
         
         {/* HEADER */}
@@ -472,7 +571,14 @@ export default function FarmPage() {
               </div>
 
               {/* FARM GRID */}
-              <div className="grid grid-cols-3 gap-6 bg-zinc-900/20 p-6 rounded-[2.5rem] border border-zinc-800/50 shadow-inner">
+              <div className="relative grid grid-cols-3 gap-6 bg-zinc-900/20 p-6 rounded-[2.5rem] border border-zinc-800/50 shadow-inner">
+                {isActionPending && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/90 px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-200">
+                      Processing...
+                    </div>
+                  </div>
+                )}
                 {Array.from({ length: 9 }).map((_, index) => {
                   const tile = tiles.find((t) => t.index === index);
                   const crop = crops.find((c) => c.tileIndex === index);

@@ -13,9 +13,15 @@ export async function POST() {
       include: { region: true }
     });
 
-    for (const item of prices) {
+    if (prices.length === 0) {
+      return NextResponse.json({
+        message: "No market prices to update",
+      });
+    }
+
+    const updates = prices.map((item) => {
       let eventMultiplier = 1.0;
-      
+
       // Only apply event multiplier if it's global OR if it matches the current item's region
       if (event) {
         if (!event.regions || event.regions.includes(item.region.name)) {
@@ -31,11 +37,13 @@ export async function POST() {
         eventMultiplier
       );
 
-      await prisma.marketPrice.update({
+      return prisma.marketPrice.update({
         where: { id: item.id },
         data: { price: finalPrice },
       });
-    }
+    });
+
+    await prisma.$transaction(updates);
 
     return NextResponse.json({
       message: "Prices updated using regional dynamic supply/demand formula",

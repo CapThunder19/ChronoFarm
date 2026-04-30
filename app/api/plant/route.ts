@@ -72,8 +72,7 @@ export async function POST(
     }
 
     // Check farm level against crop unlock level
-    const farmWithLevel = await prisma.farm.findUnique({ where: { id: farm.id } });
-    const farmLevel = farmWithLevel?.level ?? 1;
+    const farmLevel = farm.level ?? 1;
     if (cropConfig.unlockLevel && farmLevel < cropConfig.unlockLevel) {
       return NextResponse.json({ error: `Crop ${type} unlocks at level ${cropConfig.unlockLevel}` });
     }

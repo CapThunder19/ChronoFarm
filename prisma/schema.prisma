@@ -105,6 +105,8 @@ model Region {
   marketPrices MarketPrice[]
 
   createdAt DateTime @default(now())
+
+  @@unique([name])
 }
 
 model NPC {
