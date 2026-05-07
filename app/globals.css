@@ -1,41 +1,233 @@
 @import "tailwindcss";
 
+/* ── Fonts ──────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0d1510;
+  --foreground: #f5e6c8;
+  --panel-bg: #16241b;
+  --secondary-panel: #223126;
+  --card-bg: #3b2618;
+  --farm-board: #4c7a2d;
+  --border-color: #8b5a2b;
+  --highlight: #d6a85f;
+  --accent-primary: #39d98a;
+  --accent-primary-light: #5ee3a3;
+  --accent-primary-dark: #2aa86a;
+  --accent-primary-deep: #1f7b4e;
+  --accent-secondary: #d6a85f;
+  --accent-secondary-light: #e6bf7c;
+  --accent-secondary-dark: #b98646;
+  --accent-secondary-deep: #8a5f2b;
+  --accent-blue: #4a90e2;
+  --accent-blue-light: #6aa8ea;
+  --accent-blue-dark: #3473c6;
+  --accent-blue-deep: #24548e;
+  --accent-purple: #8b5cf6;
+  --accent-purple-light: #a17ef9;
+  --accent-purple-dark: #6d3ee8;
+  --accent-purple-deep: #4a2bb5;
+  --text-muted: #b9b29f;
+  --danger: #d64545;
+  --danger-light: #e05a5a;
+  --danger-dark: #b33434;
+  --danger-deep: #7a1f1f;
+  --game-border: rgba(139, 90, 43, 0.45);
+  --background-rgb: 13, 21, 16;
+  --panel-bg-rgb: 22, 36, 27;
+  --card-bg-rgb: 59, 38, 24;
+  --font-mono: 'Share Tech Mono', 'Courier New', monospace;
+  --font-pixel: 'Press Start 2P', monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-mono);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
+html, body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Emoji-safe font stack */
+  font-family: 'Share Tech Mono', 'Courier New', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', monospace;
+  height: 100%;
+  overflow: hidden;
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+/* ── Scrollbars ─────────────────────────────────────── */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 32, 0.6); }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(57, 217, 138, 0.3); border-radius: 2px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(57, 217, 138, 0.5); }
+
+/* ══════════════════════════════════════════════════════
+   GAME BUTTON SYSTEM  — 3-D press effect
+   ══════════════════════════════════════════════════════ */
+
+/* Base */
+.btn-game {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
   border-radius: 4px;
+  position: relative;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.12s ease;
+  outline: none;
+  white-space: nowrap;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+.btn-game:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-game:not(:disabled):hover { filter: brightness(1.15); }
+.btn-game:not(:disabled):active {
+  transform: translateY(3px);
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+
+/* ── Green (Harvest / Confirm) */
+.btn-game-green {
+  background: linear-gradient(180deg, var(--accent-primary-light) 0%, var(--accent-primary) 60%, var(--accent-primary-dark) 100%);
+  color: #0b1a12;
+  border: 1px solid #72efb0;
+  border-bottom: 1px solid var(--accent-primary-deep);
+  box-shadow:
+    0 5px 0 0 var(--accent-primary-deep),
+    0 6px 0 0 #0b1a12,
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 0 12px rgba(56,178,109,0.25);
 }
+.btn-game-green:not(:disabled):active {
+  box-shadow:
+    0 2px 0 0 var(--accent-primary-deep),
+    0 3px 0 0 #0b1a12,
+    inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+/* ── Blue (Refresh / Water) */
+.btn-game-blue {
+  background: linear-gradient(180deg, var(--accent-blue-light) 0%, var(--accent-blue) 60%, var(--accent-blue-dark) 100%);
+  color: #0c1320;
+  border: 1px solid #86b8f1;
+  border-bottom: 1px solid var(--accent-blue-deep);
+  box-shadow:
+    0 5px 0 0 var(--accent-blue-deep),
+    0 6px 0 0 #0c1320,
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    0 0 10px rgba(74,144,226,0.22);
+}
+.btn-game-blue:not(:disabled):active {
+  box-shadow: 0 2px 0 0 var(--accent-blue-deep), 0 3px 0 0 #0c1320, inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* ── Purple (Upgrade / Time) */
+.btn-game-purple {
+  background: linear-gradient(180deg, var(--accent-purple-light) 0%, var(--accent-purple) 60%, var(--accent-purple-dark) 100%);
+  color: #120a20;
+  border: 1px solid #b99dfb;
+  border-bottom: 1px solid var(--accent-purple-deep);
+  box-shadow:
+    0 5px 0 0 var(--accent-purple-deep),
+    0 6px 0 0 #120a20,
+    inset 0 1px 0 rgba(255,255,255,0.2),
+    0 0 10px rgba(139,92,246,0.22);
+}
+.btn-game-purple:not(:disabled):active {
+  box-shadow: 0 2px 0 0 var(--accent-purple-deep), 0 3px 0 0 #120a20, inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+/* ── Yellow / Gold (Sell / Unlock) */
+.btn-game-yellow {
+  background: linear-gradient(180deg, var(--accent-secondary-light) 0%, var(--accent-secondary) 60%, var(--accent-secondary-dark) 100%);
+  color: #1c1207;
+  border: 1px solid #e8c07a;
+  border-bottom: 1px solid var(--accent-secondary-deep);
+  box-shadow:
+    0 5px 0 0 var(--accent-secondary-deep),
+    0 6px 0 0 #1b1207,
+    inset 0 1px 0 rgba(255,255,255,0.3),
+    0 0 12px rgba(192,139,62,0.2);
+}
+.btn-game-yellow:not(:disabled):active {
+  box-shadow: 0 2px 0 0 var(--accent-secondary-deep), 0 3px 0 0 #1b1207, inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+/* ── Red (Logout / Reset) */
+.btn-game-red {
+  background: linear-gradient(180deg, var(--danger-light) 0%, var(--danger) 60%, var(--danger-dark) 100%);
+  color: #fff1f2;
+  border: 1px solid #f07b7b;
+  border-bottom: 1px solid var(--danger-deep);
+  box-shadow:
+    0 5px 0 0 var(--danger-deep),
+    0 6px 0 0 #3a0f0f,
+    inset 0 1px 0 rgba(255,255,255,0.2),
+    0 0 12px rgba(214,69,69,0.22);
+}
+.btn-game-red:not(:disabled):active {
+  box-shadow: 0 2px 0 0 var(--danger-deep), 0 3px 0 0 #3a0f0f, inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+/* ── Dark / Ghost (secondary, nav) */
+.btn-game-dark {
+  background: linear-gradient(180deg, #223126 0%, var(--panel-bg) 60%, #121b15 100%);
+  color: var(--text-muted);
+  border: 1px solid #2f3f33;
+  border-bottom: 1px solid #0f1511;
+  box-shadow:
+    0 4px 0 0 #0f1511,
+    0 5px 0 0 #0a0f0c,
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.btn-game-dark:not(:disabled):hover { color: var(--foreground); border-color: #3a4b41; }
+.btn-game-dark:not(:disabled):active {
+  box-shadow: 0 1px 0 0 #0b110d, 0 2px 0 0 #070b09, inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* ── Indigo (time travel) */
+.btn-game-indigo {
+  background: linear-gradient(180deg, #2c3a2f 0%, var(--secondary-panel) 60%, #1a241a 100%);
+  color: var(--accent-primary);
+  border: 1px solid rgba(57, 217, 138, 0.6);
+  border-bottom: 1px solid var(--accent-primary-deep);
+  box-shadow:
+    0 5px 0 0 var(--accent-primary-deep),
+    0 6px 0 0 #0b1a12,
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 0 10px rgba(57,217,138,0.2);
+}
+.btn-game-indigo:not(:disabled):active {
+  box-shadow: 0 2px 0 0 var(--accent-primary-deep), 0 3px 0 0 #0b1a12, inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* ── Pixel logo text ─────────────────────────────────── */
+.pixel-logo {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  background: linear-gradient(135deg, #d6a85f, #f0d092, #d6a85f);
+  background-size: 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+  letter-spacing: 0.05em;
+}
+
+/* ── Animations ─────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: 0%   center; }
+  100% { background-position: 200% center; }
+}
+@keyframes harvest-bob {
+  0%,100% { transform: scale(1)   translateY(0); }
+  50%      { transform: scale(1.1) translateY(-4px); }
+}
+.crop-ready-anim { animation: harvest-bob 1.5s ease-in-out infinite; }

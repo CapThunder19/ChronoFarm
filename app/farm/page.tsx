@@ -24,6 +24,7 @@ export default function FarmPage() {
   const [regions, setRegions] = useState<any[]>([]);
   const [currentRegion, setCurrentRegion] = useState<any>(null);
   const [showMap, setShowMap] = useState(false);
+  const [showSeedPortal, setShowSeedPortal] = useState(false);
 
   const [selectedCrop, setSelectedCrop] = useState("WHEAT");
   const [message, setMessage] = useState("");
@@ -33,6 +34,7 @@ export default function FarmPage() {
   const [walletAddress, setWalletAddress] = useState("");
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isActionPending, setIsActionPending] = useState(false);
+  const [tick, setTick] = useState(0);
   const statusInFlight = useRef(false);
   const pricesInFlight = useRef(false);
   const initialLoadRef = useRef(true);
@@ -141,9 +143,11 @@ export default function FarmPage() {
       void updatePrices();
     }, 60000);
 
+    const tickInterval = setInterval(() => setTick(t => t + 1), 1000);
     return () => {
       clearInterval(statusInterval);
       clearInterval(priceInterval);
+      clearInterval(tickInterval);
     };
   }, [walletAddress]);
 
@@ -326,6 +330,20 @@ export default function FarmPage() {
 
   // ---------------- TIMER ----------------
 
+  const fmtTimer = (crop: any) => {
+    const ms = new Date(crop.readyAt).getTime() - Date.now();
+    if (ms <= 0) return { ready: true, label: "READY TO HARVEST", pct: 100 };
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    const total = new Date(crop.readyAt).getTime() - new Date(crop.plantedAt).getTime();
+    return {
+      ready: false,
+      label: h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`,
+      pct: Math.min(100, ((total - ms) / total) * 100)
+    };
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getStatus = (crop: any) => {
     const now = new Date();
     const ready = new Date(crop.readyAt);
@@ -342,19 +360,17 @@ export default function FarmPage() {
     .sort((a, b) => a - b)
     .map((eventYear, index) => ({ level: index + 1, year: eventYear }));
 
+  const nextEraEntry = levelYearPairs.find(p => p.year > year);
+
   useEffect(() => {
     const keys = Object.keys(CROPS).filter(k => !CROPS[k].itemType || CROPS[k].itemType === "crop");
     const firstAllowed = keys.find((k) => {
       const cfg = CROPS[k] as any;
-      // region check
       if (cfg.regions && currentRegion && !cfg.regions.includes(currentRegion.name)) return false;
-      // level check
       if (cfg.unlockLevel && (level ?? 1) < cfg.unlockLevel) return false;
       return true;
     });
-    if (firstAllowed && !Object.keys(CROPS).includes(selectedCrop)) {
-      setSelectedCrop(firstAllowed);
-    }
+    if (firstAllowed && !Object.keys(CROPS).includes(selectedCrop)) setSelectedCrop(firstAllowed);
     if (firstAllowed && selectedCrop) {
       const selCfg = CROPS[selectedCrop] as any;
       const selAllowed = !(selCfg.regions && currentRegion && !selCfg.regions.includes(currentRegion.name)) && !(selCfg.unlockLevel && (level ?? 1) < selCfg.unlockLevel);
@@ -363,418 +379,372 @@ export default function FarmPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentRegion, level]);
 
+  // suppress unused var lint for tick (used to trigger re-renders for fmtTimer)
+  void tick;
+
+  const NAV = [
+    { icon: "🌾", label: "The Farm",        href: "/farm",        active: true  },
+    { icon: "🔧", label: "Engineering",      href: "/crafting",    active: false },
+    { icon: "🏪", label: "Marketplace",      href: "/marketplace", active: false },
+    { icon: "🌐", label: "Exchange",          href: "/section",     active: false },
+    { icon: "🗺️", label: "World Map",        href: null,           active: false },
+    { icon: "🏆", label: "Achievements",      href: null,           active: false },
+    { icon: "👑", label: "Leaderboard",       href: null,           active: false },
+  ];
+
+  const eventImages: Record<string, string> = {
+    "Peaceful Times": "/Peacfultime.png",
+    "The Titanic Era": "/Titanic-era.png",
+  };
+  const eventImage = event?.name ? eventImages[event.name] : undefined;
+
   return (
-    <div className="min-h-screen bg-[#050505] text-zinc-100 p-8 font-sans selection:bg-green-500/30">
+    <div className="h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)] overflow-hidden" style={{fontFamily:"'Share Tech Mono','Courier New','Apple Color Emoji','Segoe UI Emoji',monospace",fontSize:"13px"}}>
+
+      {/* LOADING */}
       {isBootstrapping && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/90 px-6 py-4 text-sm font-bold uppercase tracking-widest text-zinc-200">
-            Loading farm...
-          </div>
+        <div className="fixed inset-0 z-50 bg-[rgba(var(--background-rgb),0.88)] flex items-center justify-center">
+          <div className="border border-zinc-600 px-8 py-4 text-green-400 text-sm font-bold tracking-widest">[ LOADING CHRONOFARM... ]</div>
         </div>
       )}
-      <div className="max-w-6xl mx-auto">
-        
-        {/* HEADER */}
-        <header className="flex justify-between items-end mb-12 border-b border-zinc-900 pb-8">
-          <div>
-            <h1 className="text-5xl font-black tracking-tighter mb-4 bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent">
-              CHRONOFARM
-            </h1>
-            <div className="flex items-center gap-6">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Timeline</span>
-                  <h2 className="text-2xl font-mono font-bold text-zinc-300">📅 {year}</h2>
-              </div>
-              <div className="h-10 w-[1px] bg-zinc-900"></div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Balance</span>
-                <h2 className="text-2xl font-mono font-bold text-green-500">💰 ${money}</h2>
-              </div>
-              <div className="h-10 w-[1px] bg-zinc-900"></div>
-              {currentRegion && (
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Location</span>
-                  <div className="flex items-center gap-2 text-blue-400">
-                    <span className="text-xl">📍</span>
-                    <h2 className="text-xl font-bold tracking-tight">{currentRegion.name}</h2>
-                  </div>
-                </div>
-              )}
-              {walletAddress && (
-                <>
-                  <div className="h-10 w-[1px] bg-zinc-900"></div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Wallet</span>
-                    <h2 className="text-sm font-mono font-bold text-cyan-400">
-                      {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-                    </h2>
-                  </div>
-                </>
-              )}
-                <div className="h-10 w-[1px] bg-zinc-900"></div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Farm Level</span>
-                  <div className="flex items-center gap-3">
-                    <div className="text-2xl font-mono font-bold">L{level}</div>
-                    <div className="w-40 bg-zinc-800 rounded-full h-3 overflow-hidden">
-                      <div className="h-3 bg-green-500" style={{ width: `${Math.min(100, (xp % 100))}%` }}></div>
-                    </div>
-                    <div className="text-sm text-zinc-400">{xp} XP</div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-zinc-500">
-                    {levelYearPairs.slice(0, 4).map((item) => (
-                      <span key={item.level} className="px-2 py-1 rounded-full bg-zinc-900 border border-zinc-800">
-                        L{item.level} → {item.year}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+
+      {/* --- TOP BAR --- */}
+      <header className="flex items-center gap-4 px-4 py-2 border-b border-zinc-700 shrink-0 bg-[var(--panel-bg)]">
+        <span className="font-black text-white tracking-widest text-base mr-4">CHRONOFARM</span>
+        <div className="flex-1 flex items-center justify-center gap-6 text-xs text-zinc-400">
+          <span>LEVEL <span className="text-white font-bold">{level}</span></span>
+          <span className="text-zinc-700">•</span>
+          <span>BALANCE <span className="text-yellow-400 font-bold">${money}</span></span>
+          <span className="text-zinc-700">•</span>
+          <span>REGION <span className="text-blue-400 font-bold">{currentRegion?.name || "—"}</span></span>
+          <span className="text-zinc-700">•</span>
+          <span>WALLET <span className="text-cyan-400 font-bold">{walletAddress ? `${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}` : "—"}</span></span>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <button onClick={() => void loadStatus({force:true})} className="btn-game btn-game-dark" style={{padding:"5px 10px",fontSize:"10px"}}>⟳ SYNC</button>
+          <button onClick={handleLogout} className="btn-game btn-game-red" style={{padding:"5px 10px",fontSize:"10px"}}>🚪 LOGOUT</button>
+        </div>
+      </header>
+
+      {/* ——— BODY ——— */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* SIDEBAR */}
+        <aside className="w-48 border-r border-zinc-700 flex flex-col shrink-0 bg-[var(--panel-bg)]">
+          <div className="px-3 py-2 border-b border-zinc-700 text-[11px] text-zinc-500 uppercase tracking-widest" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"9px",letterSpacing:"0.05em"}}>SIDEBAR</div>
+          <nav className="flex-1 overflow-y-auto">
+            {NAV.map(n => {
+              const cls = `flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-all ${n.active ? "text-green-400 border-l-2 border-green-500 bg-green-950/10" : "text-zinc-400 border-l-2 border-transparent hover:text-zinc-200 hover:bg-[rgba(var(--card-bg-rgb),0.7)]"}`;
+              const inner = <><span>{n.icon}</span><span>{n.label}</span></>;
+              if (n.href && !n.active) return <Link key={n.label} href={n.href}><div className={cls}>{inner}</div></Link>;
+              return <div key={n.label} className={cls} onClick={n.label === "World Map" ? () => setShowMap(!showMap) : undefined}>{inner}</div>;
+            })}
+          </nav>
+          <div className="border-t border-zinc-700 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-9 h-9 border border-zinc-600 flex items-center justify-center bg-[var(--card-bg)]">👨‍🌾</div>
+              <div><div className="text-[10px] text-zinc-500">Farmer</div><div className="text-[11px] font-bold">ChronoMaster</div></div>
+            </div>
+            <div className="grid grid-cols-2 gap-1 text-[9px] text-center">
+              <div className="border border-zinc-800 py-0.5"><div className="text-zinc-500">XP</div><div className="text-zinc-300">{xp}</div></div>
+              <div className="border border-zinc-800 py-0.5"><div className="text-zinc-500">LVL</div><div className="text-zinc-300">{level}</div></div>
+            </div>
+            <button onClick={resetGame} className="btn-game btn-game-dark mt-2 w-full" style={{padding:"6px 8px",fontSize:"9px",color:"#71717a"}}>☢ RESET</button>
+          </div>
+        </aside>
+
+        {/* CENTER */}
+        <div className="flex-1 flex flex-col border-r border-zinc-700 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-700 bg-[var(--panel-bg)] shrink-0">
+            <span className="text-[10px] text-zinc-500 uppercase tracking-widest">MAIN FARM</span>
+            {message && <span className={`text-[10px] truncate max-w-xs ${message.toLowerCase().includes("fail") ? "text-red-400" : "text-blue-400"}`}>{message}</span>}
+            <div className="flex items-center gap-2 text-[10px]">
+              {event && <span className="text-yellow-500">⚡ {event.name}</span>}
+              <span className="border border-zinc-700 px-2 py-0.5 text-green-500">XP {xp}</span>
             </div>
           </div>
-          
-          <div className="flex gap-4">
-            <Link
-              href="/crafting"
-              className="px-8 py-4 bg-zinc-900 hover:bg-zinc-800 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-zinc-800 shadow-xl active:scale-95 flex items-center gap-3"
-            >
-              <span className="text-xl">⚙️</span>
-              Crafting
-            </Link>
-            <Link
-              href="/marketplace"
-              className="px-8 py-4 bg-zinc-900 hover:bg-zinc-800 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-zinc-800 shadow-xl active:scale-95 flex items-center gap-3"
-            >
-              <span className="text-xl">⚖️</span>
-              Marketplace
-            </Link>
-            <Link
-              href="/section"
-              className="px-8 py-4 bg-zinc-900 hover:bg-zinc-800 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-zinc-800 shadow-xl active:scale-95 flex items-center gap-3"
-            >
-              <span className="text-xl">💬</span>
-              Section
-            </Link>
-            <button
-              onClick={() => setShowMap(!showMap)}
-              className="px-8 py-4 bg-zinc-900 hover:bg-zinc-800 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-zinc-800 shadow-xl active:scale-95 flex items-center gap-3"
-            >
-              <span className="text-xl">🗺️</span>
-              {showMap ? "Back to Farm" : "World Map"}
-            </button>
-            <button
-              onClick={handleLogout}
-              className="px-8 py-4 bg-red-500/10 hover:bg-red-500/20 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border border-red-500/20 shadow-xl active:scale-95 flex items-center gap-3 text-red-300"
-            >
-              <span className="text-xl">🚪</span>
-              Logout
-            </button>
-            <div className="px-8 py-4 bg-green-600/10 border border-green-500/30 rounded-2xl font-black text-xs uppercase tracking-widest text-green-400 flex items-center gap-3">
-              <span className="text-xl">⏩</span>
-              Auto year sync
-            </div>
-          </div>
-        </header>
 
-        {/* WORLD MAP VIEW */}
-        {showMap ? (
-          <div className="animate-in fade-in zoom-in-95 duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {regions.map((r) => (
-                <div 
-                  key={r.id}
-                  className={`relative group rounded-3xl overflow-hidden border-2 transition-all duration-500 ${
-                    r.id === currentRegion?.id 
-                      ? "border-blue-500 shadow-2xl shadow-blue-900/20 scale-105 z-10" 
-                      : "border-zinc-900 hover:border-zinc-700 opacity-60 hover:opacity-100"
-                  }`}
-                >
-                  <img 
-                    src={`/maps/${r.name.toLowerCase()}.png`} 
-                    alt={r.name}
-                    className="w-full h-80 object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-700"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
-                  
-                  <div className="absolute bottom-0 left-0 p-8 w-full">
-                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-2 block">{r.continent}</span>
-                    <h3 className="text-3xl font-black mb-3 tracking-tighter">{r.name}</h3>
-                    <p className="text-sm text-zinc-400 mb-6 line-clamp-2 italic font-serif leading-relaxed">"{r.description}"</p>
-                    
-                    {r.id === currentRegion?.id ? (
-                      <div className="w-full py-3 bg-blue-500 text-black text-center font-black text-[10px] uppercase tracking-widest rounded-xl">
-                        Current Location
-                      </div>
-                    ) : (
-                      (() => {
-                        const maxLevel = farmsState.length ? Math.max(...farmsState.map((f) => f.level ?? 1)) : (level ?? 1);
-                        const levelLocked = r.unlockLevel && (maxLevel ?? 1) < r.unlockLevel;
-                        const requiredYear = levelYearPairs.find((item) => item.level === r.unlockLevel)?.year;
-                        return levelLocked ? (
-                          <div className="space-y-2">
-                            <div className="w-full py-3 bg-zinc-800 text-zinc-500 text-center font-black text-[10px] uppercase tracking-widest rounded-xl">
-                              Locked (L{r.unlockLevel})
-                            </div>
-                            <div className="w-full py-2 bg-black/60 border border-zinc-800 text-zinc-300 text-center rounded-xl text-[10px] font-bold uppercase tracking-widest">
-                              Unlocks at {requiredYear ? `Year ${requiredYear}` : `Level ${r.unlockLevel}`}
-                            </div>
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={() => travelTo(r.id)}
-                            className="w-full py-3 bg-zinc-100 hover:bg-white text-black text-center font-black text-[10px] uppercase tracking-widest rounded-xl transition-all"
-                          >
-                            Travel to Region
-                          </button>
-                        );
-                      })()
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
-            
-            {/* LEFT: FARM & EVENTS */}
-            <div className="xl:col-span-8 space-y-8">
-              
-              {/* HISTORICAL EVENT */}
-              {event && (
-                <div className="p-8 bg-zinc-900/50 rounded-3xl border border-zinc-800 relative overflow-hidden group">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-red-600"></div>
-                  <div className="flex justify-between items-start">
-                    <div className="max-w-xl">
-                      <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.3em] mb-3 block">⚠️ Global Event In Progress</span>
-                      <h3 className="text-3xl font-black tracking-tighter mb-4 italic font-serif">"{event.name}"</h3>
-                      <p className="text-zinc-400 leading-relaxed text-sm mb-6">{event.description}</p>
-                      <div className="flex items-center gap-4 p-4 bg-black/40 rounded-2xl border border-white/5 italic text-zinc-300 text-sm">
-                        <span className="text-2xl">💬</span>
-                        "{event.dialogue}"
-                      </div>
-                    </div>
-                    {event.effects.priceMultiplier && (
-                      <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-2xl text-center">
-                        <span className="text-xs font-bold text-red-500 block mb-1">Market Impact</span>
-                        <span className="text-2xl font-black text-red-400">{event.effects.priceMultiplier > 1 ? "📈" : "📉"} {(event.effects.priceMultiplier * 100).toFixed(0)}%</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* MESSAGE BAR */}
-              <div className="flex items-center gap-4 font-mono text-xs text-zinc-500 bg-zinc-900/30 p-4 rounded-2xl border border-zinc-800/50">
-                <span className="text-green-500 animate-pulse">●</span>
-                <span className="text-zinc-700">CONSOLE {">"}</span>
-                <span className={message.includes("failed") ? "text-red-400" : "text-blue-400"}>{message || "Waiting for action..."}</span>
+          {showMap ? (
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+              <div className="flex items-center gap-3 mb-4">
+                <button onClick={() => setShowMap(false)} className="btn-game btn-game-dark">← BACK</button>
+                <span className="text-sm font-bold">WORLD MAP</span>
               </div>
-
-              {/* FARM GRID */}
-              <div className="relative grid grid-cols-3 gap-6 bg-zinc-900/20 p-6 rounded-[2.5rem] border border-zinc-800/50 shadow-inner">
-                {isActionPending && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/90 px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-200">
-                      Processing...
-                    </div>
-                  </div>
-                )}
-                {Array.from({ length: 9 }).map((_, index) => {
-                  const tile = tiles.find((t) => t.index === index);
-                  const crop = crops.find((c) => c.tileIndex === index);
-
-                  if (tile && !tile.unlocked) {
-                    const cost = (index + 1) * 20;
-                    return (
-                      <div
-                        key={index}
-                        onClick={() => handleTileClick(index)}
-                        className="aspect-square flex flex-col items-center justify-center rounded-3xl cursor-pointer border-2 border-dashed border-zinc-800 bg-black/40 hover:bg-zinc-800/40 hover:border-zinc-700 transition-all group"
-                      >
-                        <span className="text-4xl mb-4 grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-100 transition-all">🔒</span>
-                        <span className="text-[10px] uppercase font-black text-zinc-600 group-hover:text-zinc-400 tracking-widest">Unlock Field</span>
-                        <span className="text-sm font-mono text-yellow-600 mt-2 font-bold">${cost}</span>
-                      </div>
-                    );
-                  }
-
-                  if (!crop) {
-                    return (
-                      <div
-                        key={index}
-                        onClick={() => handleTileClick(index)}
-                        className="aspect-square flex items-center justify-center rounded-3xl cursor-pointer border-2 border-zinc-800/50 bg-zinc-900/40 hover:bg-zinc-800/60 transition-all group shadow-2xl"
-                      >
-                        <div className="w-12 h-12 rounded-full bg-zinc-800/50 flex items-center justify-center text-3xl opacity-10 group-hover:opacity-100 group-hover:scale-110 transition-all">
-                          🌱
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  const status = getStatus(crop);
-                  const isReady = status === "Ready";
-
+              <div className="grid grid-cols-3 gap-3">
+                {regions.map(r => {
+                  const maxLv = farmsState.length ? Math.max(...farmsState.map(f => f.level ?? 1)) : level;
+                  const locked = r.unlockLevel && maxLv < r.unlockLevel;
+                  const isCurrent = r.id === currentRegion?.id;
                   return (
-                    <div
-                      key={crop.id}
-                      onClick={() => handleTileClick(index)}
-                      className={`aspect-square flex flex-col items-center justify-center rounded-3xl cursor-pointer border-2 transition-all shadow-2xl relative overflow-hidden group ${
-                        isReady 
-                          ? "bg-green-900/20 border-green-500 shadow-green-900/20" 
-                          : "bg-orange-900/10 border-orange-800/30 shadow-orange-900/5"
-                      }`}
-                    >
-                      {isReady && <div className="absolute top-0 right-0 w-16 h-16 bg-green-500/10 blur-2xl rounded-full"></div>}
-                      <span className={`text-6xl mb-4 transition-transform group-hover:scale-110 ${isReady ? "animate-bounce" : "animate-pulse"}`}>
-                        {CROPS[crop.type]?.emoji || "🌾"}
-                      </span>
-                      <div className={`text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest ${isReady ? "bg-green-500 text-black shadow-lg shadow-green-500/40" : "bg-zinc-800 text-zinc-400"}`}>
-                        {status}
-                      </div>
+                    <div key={r.id} className={`border p-4 transition-all ${isCurrent ? "border-blue-500 bg-blue-950/10" : locked ? "border-zinc-800 opacity-40" : "border-zinc-700 hover:border-zinc-500 cursor-pointer"}`}>
+                      <div className="text-[9px] text-blue-400 uppercase tracking-widest mb-1">{r.continent}</div>
+                      <div className="font-bold text-sm mb-1">{r.name}</div>
+                      <div className="text-[9px] text-zinc-500 mb-3 line-clamp-2">{r.description}</div>
+                      {isCurrent
+                        ? <div className="text-[9px] text-blue-400 border border-blue-700 px-2 py-1 text-center">[ CURRENT LOCATION ]</div>
+                        : locked
+                        ? <div className="text-[9px] text-zinc-600 border border-zinc-800 px-2 py-1 text-center">🔒 LOCKED — L{r.unlockLevel}</div>
+                        : <button onClick={() => travelTo(r.id)} className="btn-game btn-game-blue w-full" style={{fontSize:"9px",padding:"6px"}}>✈ TRAVEL HERE</button>
+                      }
                     </div>
                   );
                 })}
               </div>
             </div>
-
-            {/* RIGHT: MARKETPLACE & INVENTORY */}
-            <div className="xl:col-span-4 space-y-8">
-              
-              {/* NPC / TRADER */}
-              {npc && (
-                <div className="p-6 bg-gradient-to-br from-zinc-900 to-black rounded-3xl border border-zinc-800 shadow-2xl">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-14 h-14 bg-zinc-800 rounded-2xl flex items-center justify-center text-3xl shadow-xl border border-zinc-700">
-                      🏛️
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest block">Region Authority</span>
-                      <h3 className="text-xl font-black tracking-tight">{npc.name}</h3>
-                    </div>
-                  </div>
-                  
-                  {/* MARKET PRICES */}
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {marketPrices.map((p) => (
-                      <div key={p.id} className="p-4 bg-black/40 rounded-2xl border border-zinc-800/50 group hover:border-zinc-700 transition-all">
-                        <div className="flex justify-between items-center mb-3">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">{CROPS[p.cropType]?.emoji}</span>
-                            <span className="text-xs font-black uppercase tracking-widest text-zinc-400">{p.cropType}</span>
-                          </div>
-                          <div className="text-xl font-mono font-bold text-green-500">${p.price}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden flex">
-                            <div 
-                              className="h-full bg-blue-500" 
-                              style={{ width: `${Math.min(100, (p.supply / (p.supply + p.demand)) * 100)}%` }}
-                            ></div>
-                            <div 
-                              className="h-full bg-orange-500" 
-                              style={{ width: `${Math.min(100, (p.demand / (p.supply + p.demand)) * 100)}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-[8px] font-bold text-zinc-600 uppercase">S/D</span>
-                        </div>
-                        <div className="flex justify-between mt-2">
-                          <span className="text-[9px] font-bold text-blue-400 uppercase">Supply: {p.supply}</span>
-                          <span className="text-[9px] font-bold text-orange-400 uppercase">Demand: {p.demand}</span>
-                        </div>
-                      </div>
-                    ))}
+          ) : (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Farm grid */}
+              <div className="flex-1 flex items-center justify-center p-4 overflow-hidden relative bg-[var(--background)] bg-[url('/farm-bg.png')] bg-cover bg-center">
+                <div className="absolute inset-0 bg-[rgba(var(--background-rgb),0.45)] pointer-events-none" />
+                <div className="absolute left-4 top-4 z-20 flex flex-col items-start gap-2">
+                  <button
+                    onClick={() => setShowSeedPortal(prev => !prev)}
+                    className="btn-game btn-game-green"
+                    style={{fontSize:"10px",padding:"6px 10px"}}
+                  >
+                    SEEDS
+                  </button>
+                  <div className="text-[9px] text-zinc-300 bg-[rgba(var(--panel-bg-rgb),0.8)] border border-zinc-700 rounded px-2 py-1">
+                    Selected: <span className="text-emerald-300">{CROPS[selectedCrop]?.name || selectedCrop}</span>
                   </div>
                 </div>
-              )}
+                {showSeedPortal && (
+                  <div className="absolute left-4 top-16 z-20 w-56 h-56 bg-[rgba(var(--panel-bg-rgb),0.95)] border border-emerald-700/40 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.2)] p-2 flex flex-col">
+                    <div className="text-[9px] text-emerald-300 uppercase tracking-widest mb-2">Seeds</div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.keys(CROPS).filter(k => !CROPS[k].itemType || CROPS[k].itemType === "crop").map(k => {
+                          const cfg = CROPS[k] as any;
+                          const dis = (cfg.regions && currentRegion && !cfg.regions.includes(currentRegion.name)) || (cfg.unlockLevel && level < cfg.unlockLevel);
+                          return (
+                            <button
+                              key={k}
+                              onClick={() => !dis && setSelectedCrop(k)}
+                              disabled={!!dis}
+                              className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-[10px] transition-all ${selectedCrop === k ? "border-emerald-500 text-emerald-200 bg-emerald-950/40" : dis ? "border-zinc-800 text-zinc-600 bg-zinc-950/50 cursor-not-allowed opacity-60" : "border-zinc-700 text-zinc-300 bg-zinc-900/50 hover:border-zinc-500 hover:bg-zinc-800/60"}`}
+                            >
+                              <span className="truncate">{cfg.emoji} {cfg.name}</span>
+                              {selectedCrop === k && <span className="text-[9px] text-emerald-300">ACTIVE</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {isActionPending && (
+                  <div className="absolute inset-0 z-10 bg-[rgba(var(--background-rgb),0.6)] flex items-center justify-center">
+                    <span className="border border-zinc-600 px-4 py-2 text-xs text-green-400">[ PROCESSING... ]</span>
+                  </div>
+                )}
+                <div className="w-full max-w-2xl relative z-10">
+                  <div className="text-[9px] text-zinc-600 text-center uppercase tracking-widest mb-4">FARM VIEW</div>
+                  <div className="p-4 md:p-5 mb-4 rounded-lg bg-[radial-gradient(circle_at_20%_20%,#5f8d2f_0%,#416625_45%,#2b4a17_100%)] ring-4 ring-[#2f4c13] shadow-[inset_0_0_30px_rgba(0,0,0,0.6)]">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {Array.from({length: 9}).map((_, idx) => {
+                        const tile = tiles.find(t => t.index === idx);
+                        const crop = crops.find(c => c.tileIndex === idx);
+                        const timer = crop ? fmtTimer(crop) : null;
+                        const tileFrame = "aspect-[5/4] cursor-pointer group transition-all";
+                        const woodFrame = "rounded-md p-1 bg-[#5a3b22] shadow-[0_3px_10px_rgba(0,0,0,0.6),inset_0_0_12px_rgba(0,0,0,0.6)]";
+                        const soilBase = "w-full h-full rounded-md bg-[radial-gradient(circle_at_30%_30%,#3b2a1a_0%,#2a1c12_70%)] border border-[#24160c] flex flex-col items-center justify-between p-2 relative overflow-hidden";
 
-              {/* CROP SELECTOR */}
-              <div className="p-6 bg-zinc-900 rounded-3xl border border-zinc-800 shadow-xl">
-                <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-6 block">Select Seed Type</h3>
-                <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {Object.keys(CROPS).filter(k => !CROPS[k].itemType || CROPS[k].itemType === "crop").map((key) => {
-                    const cfg = CROPS[key] as any;
-                    const regionLocked = cfg.regions && currentRegion && !cfg.regions.includes(currentRegion.name);
-                    const levelLocked = cfg.unlockLevel && (level ?? 1) < cfg.unlockLevel;
-                    const disabled = regionLocked || levelLocked;
-
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => !disabled && setSelectedCrop(key)}
-                        disabled={disabled}
-                        className={`flex flex-col items-center p-4 rounded-2xl border-2 transition-all duration-300 ${
-                          selectedCrop === key 
-                            ? "bg-green-500/10 border-green-500 shadow-lg shadow-green-500/10" 
-                            : disabled
-                            ? "bg-black/20 border-zinc-800/30 opacity-40 cursor-not-allowed"
-                            : "bg-black/40 border-zinc-800 hover:border-zinc-700 opacity-60 hover:opacity-100"
-                        }`}
-                      >
-                        <span className="text-3xl mb-2">{cfg.emoji}</span>
-                        <span className="text-[9px] font-black uppercase tracking-widest">{cfg.name}</span>
-                        {levelLocked && (
-                          <span className="text-[9px] mt-1 text-yellow-400">Unlocks at L{cfg.unlockLevel}</span>
-                        )}
-                        {regionLocked && (
-                          <span className="text-[9px] mt-1 text-blue-400">Not available in {currentRegion?.name}</span>
-                        )}
-                      </button>
-                    );
-                  })}
+                        if (tile && !tile.unlocked) return (
+                          <div key={idx} onClick={() => handleTileClick(idx)} className={tileFrame}>
+                            <div className={`${woodFrame} group-hover:brightness-110 transition-all`}>
+                              <div className={`${soilBase} justify-center gap-2`}>
+                                <span className="text-[10px] text-zinc-400 font-bold tracking-widest">LOCKED</span>
+                                <span className="text-[10px] text-zinc-300 font-bold tracking-widest">UNLOCK PLOT</span>
+                                <span className="text-[10px] text-green-300 bg-green-950/70 px-3 py-1 rounded border border-green-800 mt-1 font-bold">${(idx+1)*20}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                        if (!crop) return (
+                          <div key={idx} onClick={() => handleTileClick(idx)} className={tileFrame}>
+                            <div className={`${woodFrame} group-hover:brightness-110 transition-all`}>
+                              <div className={`${soilBase} justify-center gap-2`}>
+                                <span className="text-4xl opacity-20 group-hover:opacity-50 transition-opacity">{CROPS[selectedCrop]?.emoji || "SEED"}</span>
+                                <span className="text-[10px] text-zinc-400 group-hover:text-amber-400 font-bold tracking-widest transition-colors">PLANT</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                        return (
+                          <div key={crop.id} onClick={() => handleTileClick(idx)} className={tileFrame}>
+                            <div className={`${woodFrame} group-hover:brightness-110 transition-all`}>
+                              <div className={`${soilBase} pt-9 ${timer?.ready ? "ring-2 ring-green-500/60" : ""}`}>
+                                <div className={`absolute top-1 left-1/2 -translate-x-1/2 w-[110%] bg-gradient-to-b from-[#2b1a0c] to-[#1c1108] border border-[#4a3220] rounded-md px-2 py-1 flex items-center gap-2 shadow-lg ${timer?.ready ? "ring-1 ring-green-500/60" : ""}`}>
+                                  <span className="text-sm drop-shadow-md">{CROPS[crop.type]?.emoji || "CROP"}</span>
+                                  <div className="flex-1">
+                                    <div className="text-[10px] text-zinc-100 font-bold tracking-widest">{CROPS[crop.type]?.name?.toUpperCase() || crop.type}</div>
+                                    {!timer?.ready && timer && (
+                                      <div className="flex items-center gap-1.5 mt-1">
+                                        <div className="h-1.5 flex-1 bg-[rgba(var(--background-rgb),0.6)] rounded-full overflow-hidden border border-black/70">
+                                          <div className="h-full bg-amber-500 transition-all" style={{width: `${timer.pct}%`}} />
+                                        </div>
+                                        <span className="text-[9px] font-bold text-amber-200 tabular-nums">{timer?.label}</span>
+                                      </div>
+                                    )}
+                                    {timer?.ready && (
+                                      <div className="text-[9px] font-bold text-green-400 mt-1 bg-green-950/70 px-1 py-0.5 rounded text-center border border-green-800/60">READY TO HARVEST</div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex-1 flex items-end justify-center pb-1">
+                                  <span className={`text-5xl drop-shadow-[0_8px_10px_rgba(0,0,0,0.7)] transition-transform ${timer?.ready ? "scale-110" : "scale-95 opacity-90"}`}>
+                                    {CROPS[crop.type]?.emoji || "CROP"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {/* Action buttons */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button onClick={() => { crops.filter(c => fmtTimer(c).ready).forEach(c => handleTileClick(c.tileIndex)); }}
+                      className="btn-game btn-game-green w-full" style={{fontSize:"10px"}}>🧺 HARVEST ALL</button>
+                    <button onClick={() => void loadStatus({force:true})}
+                      className="btn-game btn-game-blue w-full" style={{fontSize:"10px"}}>💧 REFRESH</button>
+                    <button onClick={advanceTime}
+                      className="btn-game btn-game-purple w-full" style={{fontSize:"10px"}}>⏩ ADV TIME</button>
+                  </div>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
 
-              {/* INVENTORY */}
-              <div className="p-6 bg-zinc-900 rounded-3xl border border-zinc-800 shadow-xl flex-grow">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] block">Warehouse</h3>
-                  <span className="bg-zinc-800 px-3 py-1 rounded-full text-[9px] font-black text-zinc-400">
-                    {inventory.reduce((a, b) => a + b.quantity, 0)} UNITS
-                  </span>
-                </div>
-                
-                {inventory.length === 0 ? (
-                  <div className="py-12 text-center border-2 border-dashed border-zinc-800/50 rounded-2xl text-zinc-600 text-xs italic">
-                    Storage is currently empty
+        {/* RIGHT PANEL */}
+        <aside className="w-80 flex flex-col shrink-0 overflow-hidden bg-[var(--panel-bg)]">
+          <div className="px-3 py-2 border-b border-zinc-700 text-[11px] text-zinc-500 uppercase tracking-widest shrink-0" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"9px"}}>RIGHT PANEL</div>
+
+          {/* Global Event */}
+          {event && (
+            <div className="border-b border-zinc-700 p-3 shrink-0">
+              <div className="text-[10px] text-yellow-500 uppercase tracking-widest mb-1.5">GLOBAL EVENT</div>
+              <div className="border border-yellow-700/30 bg-yellow-950/10 p-2 rounded-lg">
+                {eventImage ? (
+                  <div className="relative overflow-hidden rounded border border-yellow-700/30">
+                    <img
+                      src={eventImage}
+                      alt={event.name}
+                      className="w-full h-28 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <div className="text-[11px] font-bold text-yellow-300">"{event.name}"</div>
+                      <div className="text-[10px] text-zinc-200 mt-0.5 leading-snug">{event.description}</div>
+                      {event.effects.priceMultiplier && (
+                        <div className="text-[10px] text-yellow-400 mt-1">Market Boost +{((event.effects.priceMultiplier - 1) * 100).toFixed(0)}%</div>
+                      )}
+                    </div>
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {inventory.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-4 bg-black/40 rounded-2xl border border-zinc-800/50 group transition-all hover:bg-black/60"
-                      >
-                        <div className="flex items-center gap-4">
-                          <span className="text-3xl">{CROPS[item.cropType]?.emoji}</span>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-black uppercase tracking-widest text-zinc-200">{item.cropType}</span>
-                            <span className="text-[10px] text-zinc-500 font-mono">QTY: {item.quantity}</span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => sellCrop(item.cropType)}
-                          className="px-4 py-2 bg-green-500 hover:bg-green-400 text-black text-[9px] font-black uppercase tracking-widest rounded-lg transition-all shadow-lg shadow-green-500/10 active:scale-95"
-                        >
-                          SELL $
-                        </button>
-                      </div>
-                    ))}
+                  <div className="rounded border border-yellow-700/30 p-2">
+                    <div className="text-sm font-bold text-yellow-300">"{event.name}"</div>
+                    <div className="text-[10px] text-zinc-400 mt-1 leading-relaxed">{event.description}</div>
+                    {event.effects.priceMultiplier && (
+                      <div className="text-[10px] text-yellow-500 mt-1">Market Boost +{((event.effects.priceMultiplier - 1) * 100).toFixed(0)}%</div>
+                    )}
                   </div>
                 )}
               </div>
+            </div>
+          )}
 
-              {/* FOOTER ACTIONS */}
-              <button
-                onClick={resetGame}
-                className="w-full py-4 text-[9px] font-black text-zinc-800 hover:text-red-500 transition-colors uppercase tracking-[0.4em] border-t border-zinc-900"
-              >
-                ☢️ Clear Simulation Data
-              </button>
+          {/* Market Panel */}
+          {npc && marketPrices.length > 0 && (
+            <div className="border-b border-zinc-700 p-3 flex-1 flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between mb-2 shrink-0">
+                <div className="text-[10px] text-zinc-500 uppercase tracking-widest">MARKET PANEL</div>
+                <span className="text-[9px] text-zinc-600">{npc.name}</span>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-[rgba(var(--panel-bg-rgb),0.7)] p-2 space-y-1 flex-1 overflow-y-auto custom-scrollbar">
+                {marketPrices.map(p => {
+                  const d = p.demand / (p.supply + p.demand + 0.001);
+                  const badge = d > 0.65 ? {l:"VERY HIGH",c:"text-purple-400"} : d > 0.5 ? {l:"HIGH",c:"text-green-400"} : d > 0.35 ? {l:"MEDIUM",c:"text-yellow-400"} : {l:"LOW",c:"text-red-400"};
+                  return (
+                    <div key={p.id} className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded hover:bg-[rgba(var(--card-bg-rgb),0.7)]">
+                      <span>{CROPS[p.cropType]?.emoji}</span>
+                      <span className="text-zinc-300 flex-1">{p.cropType}</span>
+                      <span className="text-green-400 font-bold">${p.price}</span>
+                      <span className={`text-[9px] ${badge.c}`}>{badge.l}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className="p-3 shrink-0">
+            <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2">QUICK ACTIONS</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Link href="/crafting" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>⚙️ Crafting</Link>
+              <Link href="/marketplace" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>🏪 Market</Link>
+              <button onClick={() => setShowMap(true)} className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>🗺️ World Map</button>
+              <Link href="/section" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>💬 Chat</Link>
             </div>
           </div>
-        )}
+        </aside>
+      </div>
+
+      {/* ——— BOTTOM ROW ——— */}
+      <div className="flex border-t border-zinc-700 shrink-0 bg-[var(--panel-bg)]" style={{height:"130px"}}>
+
+        {/* Global Chat */}
+        <div className="flex-1 border-r border-zinc-700 flex flex-col overflow-hidden">
+          <div className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"7px"}}>GLOBAL CHAT</div>
+          <div className="flex-1 px-3 py-2 overflow-y-auto custom-scrollbar">
+            <div className="text-[9px] text-zinc-600 italic">[chat messages....]</div>
+          </div>
+          <div className="border-t border-zinc-800 px-3 py-1 shrink-0">
+            <Link href="/section" className="btn-game btn-game-dark" style={{fontSize:"8px",padding:"4px 8px"}}>💬 OPEN CHAT</Link>
+          </div>
+        </div>
+
+        {/* Time Travel */}
+        <div className="flex-1 border-r border-zinc-700 flex flex-col">
+          <div className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"7px"}}>TIME TRAVEL</div>
+          <div className="flex-1 flex items-center justify-between px-4">
+            <div>
+              <div className="text-[9px] text-zinc-500 mb-1">Current Era → <span className="text-indigo-400 font-bold">{year}</span></div>
+              {nextEraEntry && <div className="text-[9px] text-zinc-500 mb-2">Next Era → <span className="text-purple-400 font-bold">{nextEraEntry.year}</span></div>}
+              <div className="w-32 h-1.5 bg-[rgba(var(--card-bg-rgb),0.7)] overflow-hidden">
+                <div className="h-full bg-indigo-500 transition-all" style={{width: `${Math.min(100,(xp % 15) / 15 * 100)}%`}} />
+              </div>
+              <div className="text-[8px] text-zinc-600 mt-0.5">{xp % 15}/15 era XP</div>
+            </div>
+            <button onClick={advanceTime} className="btn-game btn-game-indigo" style={{fontSize:"9px"}}>⏳ ADVANCE ERA</button>
+          </div>
+        </div>
+
+        {/* Daily Rewards */}
+        <div className="flex-1 flex flex-col">
+          <div className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"7px"}}>DAILY REWARDS</div>
+          <div className="flex-1 flex items-center px-3 gap-1.5">
+            {[
+              {day:1,icon:"✅",label:"$500"},
+              {day:2,icon:"💎",label:"x10"},
+              {day:3,icon:"🌾",label:"x1"},
+              {day:4,icon:"⭐",label:"$1,000"},
+              {day:5,icon:"💰",label:"x20"},
+              {day:6,icon:"🎁",label:"x1"},
+            ].map(r => (
+              <div key={r.day} className={`flex flex-col items-center border p-1.5 flex-1 ${r.day === 1 ? "border-green-600 bg-green-950/20" : "border-zinc-700"}`}>
+                <div className="text-[8px] text-zinc-500">Day {r.day}</div>
+                <div className="text-base">{r.icon}</div>
+                <div className="text-[7px] text-zinc-500">{r.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
