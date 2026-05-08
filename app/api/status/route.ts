@@ -66,13 +66,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "User farm not found" }, { status: 404 });
     }
 
+    // Always dynamically calculate level based on true XP
+    const realLevel = Math.floor((farm.xp ?? 0) / 100) + 1;
+
     // Read year from timeline (no expensive DB write on every poll)
     const year = timeline?.year ?? 1910;
     const event = EVENTS[year] ?? null;
 
     return NextResponse.json({
       money: user.money,
-      level: farm.level ?? 1,
+      level: realLevel,
       xp: farm.xp ?? 0,
       farms: user.farms ?? [],
       crops: farm.crops ?? [],

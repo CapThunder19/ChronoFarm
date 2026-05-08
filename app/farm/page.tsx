@@ -87,8 +87,10 @@ export default function FarmPage() {
       setNpc(data.npc ?? null);
       setRegions(data.regions ?? []);
       setCurrentRegion(data.currentRegion ?? null);
-      setLevel(data.level ?? 1);
-      setXp(data.xp ?? 0);
+      // Prefer server-provided level but compute from XP as a fallback
+      const serverXp = data.xp ?? 0;
+      setXp(serverXp);
+      setLevel(data.level ?? (Math.floor(serverXp / 100) + 1));
       setFarmsState(data.farms ?? []);
     } catch (err) {
       console.error("Failed to load status", err);
