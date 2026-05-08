@@ -76,38 +76,40 @@ export default function CraftingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-zinc-100 p-6 md:p-12 relative overflow-hidden">
+    <div className="h-screen bg-[var(--background)] text-[var(--foreground)] p-6 md:p-12 relative overflow-hidden">
       {/* Background aesthetics */}
       <div className="pointer-events-none absolute inset-0 z-0">
-        <div className="absolute top-0 left-1/4 h-[500px] w-[500px] rounded-full bg-cyan-500/10 blur-[100px]" />
-        <div className="absolute bottom-0 right-1/4 h-[500px] w-[500px] rounded-full bg-lime-500/10 blur-[100px]" />
+        <div className="absolute top-0 left-1/4 h-[500px] w-[500px] rounded-full bg-emerald-500/10 blur-[100px]" />
+        <div className="absolute bottom-0 right-1/4 h-[500px] w-[500px] rounded-full bg-amber-500/10 blur-[100px]" />
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
+      <div className="relative z-10 max-w-5xl mx-auto h-full flex flex-col">
+        <div className="mb-8 flex items-center justify-between shrink-0">
           <div>
-            <h1 className="text-4xl font-black tracking-tight text-white md:text-5xl">
+            <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)] md:text-5xl">
               Engineering Bay
             </h1>
-            <p className="mt-2 text-zinc-400">
+            <p className="mt-2 text-[var(--text-muted)]">
               Combine raw materials into powerful tools to boost your farm's productivity.
             </p>
           </div>
           <Link
             href="/farm"
-            className="rounded-full bg-zinc-900/80 px-6 py-3 text-sm font-bold border border-zinc-800 transition hover:bg-zinc-800 hover:border-zinc-700"
+            className="btn-game btn-game-dark"
+            style={{ padding: "10px 14px", fontSize: "10px" }}
           >
             Back to Farm
           </Link>
         </div>
 
         {message && (
-          <div className="mb-8 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-6 py-4 text-cyan-200 backdrop-blur-md animate-pulse">
+          <div className="mb-8 rounded-lg border border-[var(--game-border)] bg-[rgba(var(--panel-bg-rgb),0.8)] px-6 py-4 text-[var(--highlight)] backdrop-blur-md animate-pulse shrink-0">
             {message}
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 pb-6">
           {CRAFTING_RECIPES.map((recipe) => {
             const outputConfig = CROPS[recipe.output.type];
             let canCraft = true;
@@ -115,31 +117,31 @@ export default function CraftingPage() {
             return (
               <div
                 key={recipe.id}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/60 p-6 backdrop-blur-md transition-all hover:border-zinc-700"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-lg border border-[var(--game-border)] bg-[rgba(var(--panel-bg-rgb),0.85)] p-6 backdrop-blur-md transition-all hover:border-[var(--highlight)]"
               >
                 <div>
                   <div className="flex items-start justify-between mb-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-2xl">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[rgba(var(--panel-bg-rgb),0.9)] border border-[var(--game-border)] text-2xl">
                       {outputConfig?.emoji || "⚙️"}
                     </div>
                     <div className="text-right">
-                      <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                      <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">
                         Produces
                       </div>
-                      <div className="text-lg font-black text-white">
+                      <div className="text-lg font-black text-[var(--foreground)]">
                         {recipe.output.amount}x {recipe.name}
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-sm text-zinc-400 mb-4">{recipe.description}</p>
+                  <p className="text-sm text-[var(--text-muted)] mb-4">{recipe.description}</p>
                   
-                  <div className="mb-6 rounded-xl bg-zinc-900/50 p-3 text-xs text-lime-400 border border-lime-500/20">
+                  <div className="mb-6 rounded-md bg-[rgba(var(--panel-bg-rgb),0.8)] p-3 text-xs text-[var(--accent-secondary)] border border-[var(--game-border)]">
                     {recipe.buffDescription}
                   </div>
 
                   <div className="mb-6">
-                    <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">
+                    <div className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-3">
                       Requirements
                     </div>
                     <div className="grid gap-2">
@@ -152,11 +154,11 @@ export default function CraftingPage() {
                         return (
                           <div
                             key={ing.type}
-                            className="flex items-center justify-between rounded-lg bg-zinc-900/80 px-3 py-2 text-sm"
+                            className="flex items-center justify-between rounded-md bg-[rgba(var(--panel-bg-rgb),0.8)] border border-[var(--game-border)] px-3 py-2 text-sm"
                           >
                             <div className="flex items-center gap-2">
                               <span>{ingConfig?.emoji}</span>
-                              <span className="text-zinc-300">{ingConfig?.name || ing.type}</span>
+                              <span className="text-[var(--foreground)]">{ingConfig?.name || ing.type}</span>
                             </div>
                             <div
                               className={`font-mono ${
@@ -175,13 +177,14 @@ export default function CraftingPage() {
                 <button
                   onClick={() => handleCraft(recipe)}
                   disabled={!canCraft || !!craftingId || loading}
-                  className={`relative w-full overflow-hidden rounded-2xl px-4 py-4 font-bold transition-all ${
+                  className={`btn-game w-full ${
                     !canCraft || loading
-                      ? "bg-zinc-900 text-zinc-600 cursor-not-allowed"
+                      ? "btn-game-dark"
                       : craftingId === recipe.id
-                      ? "bg-amber-500 text-black"
-                      : "bg-cyan-500 text-black hover:bg-cyan-400 active:scale-[0.98]"
+                      ? "btn-game-yellow"
+                      : "btn-game-green"
                   }`}
+                  style={{ padding: "12px 12px", fontSize: "11px" }}
                 >
                   {craftingId === recipe.id ? (
                     <span className="flex items-center justify-center gap-2 animate-pulse">
@@ -206,6 +209,7 @@ export default function CraftingPage() {
               </div>
             );
           })}
+          </div>
         </div>
       </div>
       <style jsx global>{`

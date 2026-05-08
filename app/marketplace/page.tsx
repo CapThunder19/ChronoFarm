@@ -183,80 +183,81 @@ export default function MarketplacePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-2 border-zinc-700 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-zinc-500 text-sm font-mono uppercase tracking-widest">Loading Exchange...</p>
+          <p className="text-zinc-400 text-sm font-mono uppercase tracking-widest">Loading Exchange...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-zinc-100 p-8 font-sans">
-      <div className="max-w-7xl mx-auto">
+    <div className="h-screen bg-[var(--background)] text-[var(--foreground)] p-8 overflow-hidden">
+      <div className="max-w-7xl mx-auto h-full flex flex-col">
 
         {/* HEADER */}
-        <header className="flex justify-between items-end mb-12 border-b border-zinc-900 pb-8">
+        <header className="flex justify-between items-end mb-12 border-b border-zinc-700 pb-8 shrink-0">
           <div>
             <div className="flex items-center gap-4 mb-2">
-              <Link href="/farm" className="text-zinc-500 hover:text-white transition-colors">← Back to Farm</Link>
-              <span className="text-zinc-800">/</span>
-              <h1 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent">
+              <Link href="/farm" className="text-[var(--text-muted)] hover:text-[var(--foreground)] transition-colors">← Back to Farm</Link>
+              <span className="text-zinc-700">/</span>
+              <h1 className="text-4xl font-black tracking-tighter text-[var(--highlight)]">
                 GLOBAL EXCHANGE
               </h1>
             </div>
-            <div className="flex items-center gap-4 text-sm text-zinc-500">
-              <Link href="/section" className="hover:text-white transition-colors">Section</Link>
-              <span className="text-zinc-800">/</span>
-              <button onClick={handleLogout} className="hover:text-white transition-colors">Logout</button>
+            <div className="flex items-center gap-4 text-sm text-[var(--text-muted)]">
+              <Link href="/section" className="hover:text-[var(--foreground)] transition-colors">Section</Link>
+              <span className="text-zinc-700">/</span>
+              <button onClick={handleLogout} className="hover:text-[var(--foreground)] transition-colors">Logout</button>
             </div>
             <div className="flex items-center gap-6 mt-3">
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Timeline</span>
-                <h2 className="text-xl font-mono font-bold text-zinc-300">📅 {year}</h2>
+                <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.3em] mb-1">Timeline</span>
+                <h2 className="text-xl font-mono font-bold text-[var(--foreground)]">📅 {year}</h2>
               </div>
-              <div className="h-8 w-[1px] bg-zinc-900"></div>
+              <div className="h-8 w-[1px] bg-zinc-700"></div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Balance</span>
-                <h2 className="text-xl font-mono font-bold text-green-500 transition-all">💰 ${money}</h2>
+                <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.3em] mb-1">Balance</span>
+                <h2 className="text-xl font-mono font-bold text-yellow-400 transition-all">💰 ${money}</h2>
               </div>
             </div>
           </div>
 
           {event && (
-            <div className="bg-red-900/10 border border-red-500/20 p-4 rounded-2xl max-w-md animate-pulse">
-              <span className="text-[8px] font-black text-red-500 uppercase tracking-widest block mb-1">Active Event</span>
-              <h3 className="text-sm font-bold italic font-serif">"{event.name}"</h3>
-              <p className="text-[10px] text-zinc-500 mt-1">{event.description}</p>
+            <div className="bg-[rgba(var(--panel-bg-rgb),0.7)] border border-red-700/40 p-4 rounded-lg max-w-md animate-pulse">
+              <span className="text-[8px] font-black text-red-400 uppercase tracking-widest block mb-1">Active Event</span>
+              <h3 className="text-sm font-bold italic">"{event.name}"</h3>
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">{event.description}</p>
             </div>
           )}
         </header>
 
         {message && (
-          <div className="mb-8 p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-blue-400 text-xs font-mono">
+          <div className="mb-8 p-4 bg-[rgba(var(--panel-bg-rgb),0.8)] border border-[var(--game-border)] rounded-lg text-[var(--highlight)] text-xs font-mono shrink-0">
             {">"} {message}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        <div className="flex-1 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 h-full overflow-y-auto custom-scrollbar pr-2 lg:overflow-hidden lg:pr-0">
 
           {/* LEFT: INVENTORY */}
-          <div className="lg:col-span-3 space-y-8">
-            <div className="p-6 bg-zinc-900/40 rounded-3xl border border-zinc-800 shadow-xl sticky top-8">
-              <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-6 block">Your Stockpile</h3>
+          <div className="lg:col-span-3 space-y-8 lg:h-full lg:overflow-y-auto lg:custom-scrollbar lg:pr-2">
+            <div className="p-6 bg-[rgba(var(--panel-bg-rgb),0.85)] rounded-lg border border-[var(--game-border)] shadow-xl">
+              <h3 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.3em] mb-6 block">Your Stockpile</h3>
               {inventory.length === 0 ? (
-                <div className="py-12 text-center border-2 border-dashed border-zinc-800/50 rounded-2xl text-zinc-600 text-xs italic">
+                <div className="py-12 text-center border border-dashed border-[var(--game-border)] rounded-lg text-[var(--text-muted)] text-xs italic">
                   Empty Warehouse
                 </div>
               ) : (
                 <div className="space-y-4">
                   {inventory.map((item) => (
-                    <div key={item.id} className="p-4 bg-black/40 rounded-2xl border border-zinc-800/50 transition-all">
+                    <div key={item.id} className="p-4 bg-[rgba(var(--panel-bg-rgb),0.75)] rounded-lg border border-[var(--game-border)] transition-all">
                       <div className="flex items-center gap-4">
                         <span className="text-3xl">{CROPS[item.cropType]?.emoji}</span>
                         <div>
-                          <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{item.cropType}</div>
+                          <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">{item.cropType}</div>
                           <div className="text-xl font-mono font-bold">{item.quantity} Units</div>
                         </div>
                       </div>
@@ -268,7 +269,7 @@ export default function MarketplacePage() {
           </div>
 
           {/* RIGHT: REGIONAL DEALERS */}
-          <div className="lg:col-span-9 space-y-12">
+          <div className="lg:col-span-9 space-y-12 lg:h-full lg:overflow-y-auto lg:custom-scrollbar lg:pr-2">
             {regions.map((region) => {
               const regionNpcs = npcs.filter(n => n.regionId === region.id);
               const prices = marketPrices.filter(p => p.regionId === region.id);
@@ -277,24 +278,24 @@ export default function MarketplacePage() {
               const impact = regionEvent && event?.effects?.priceMultiplier ? event.effects.priceMultiplier : 1.0;
 
               return (
-                <div key={region.id} className={`p-8 rounded-[2.5rem] border transition-all ${isLocal ? "bg-zinc-900/40 border-blue-500/30" : "bg-zinc-900/20 border-zinc-800/50"}`}>
+                <div key={region.id} className={`p-8 rounded-lg border transition-all ${isLocal ? "bg-[rgba(var(--panel-bg-rgb),0.85)] border-blue-500/40" : "bg-[rgba(var(--panel-bg-rgb),0.65)] border-[var(--game-border)]"}`}>
                   <div className="flex justify-between items-start mb-8">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em]">{region.continent}</span>
-                        {isLocal && <span className="bg-blue-500 text-black text-[8px] font-black px-2 py-0.5 rounded-full">YOUR LOCATION</span>}
+                        <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.4em]">{region.continent}</span>
+                        {isLocal && <span className="bg-blue-400 text-black text-[8px] font-black px-2 py-0.5 rounded">YOUR LOCATION</span>}
                       </div>
                       <h2 className="text-4xl font-black tracking-tighter mb-2">{region.name}</h2>
-                      <p className="text-zinc-500 text-sm italic font-serif">"{region.description}"</p>
+                      <p className="text-[var(--text-muted)] text-sm italic">"{region.description}"</p>
                     </div>
                     {regionNpcs.length > 0 && (
                       <div className="text-right">
-                        <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-2">Local Dealers</span>
+                        <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest block mb-2">Local Dealers</span>
                         <div className="flex flex-col gap-2 items-end">
                           {regionNpcs.map((npc) => (
-                            <div key={npc.id} className="text-sm font-bold flex items-center gap-3 bg-black/40 px-3 py-1.5 rounded-xl border border-zinc-800/50">
+                            <div key={npc.id} className="text-sm font-bold flex items-center gap-3 bg-[rgba(var(--panel-bg-rgb),0.75)] px-3 py-1.5 rounded border border-[var(--game-border)]">
                               {npc.name}
-                              <div className="w-6 h-6 bg-zinc-800 rounded-md flex items-center justify-center text-xs">🏛️</div>
+                              <div className="w-6 h-6 bg-[rgba(var(--panel-bg-rgb),0.85)] rounded-md flex items-center justify-center text-xs border border-[var(--game-border)]">🏛️</div>
                             </div>
                           ))}
                         </div>
@@ -303,14 +304,14 @@ export default function MarketplacePage() {
                   </div>
 
                   {regionEvent && event && impact !== 1 && (
-                    <div className="mb-8 p-4 bg-orange-500/5 border border-orange-500/10 rounded-2xl flex items-center justify-between">
+                    <div className="mb-8 p-4 bg-amber-500/10 border border-amber-600/30 rounded-lg flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <span className="text-2xl">📢</span>
-                        <p className="text-xs text-orange-200/70 font-medium italic">"{event.dialogue}"</p>
+                        <p className="text-xs text-amber-200/80 font-medium italic">"{event.dialogue}"</p>
                       </div>
                       <div className="text-right">
-                        <span className="text-[8px] font-black text-orange-500 uppercase block mb-1">Market Multiplier</span>
-                        <span className="text-xl font-mono font-bold text-orange-400">x{impact}</span>
+                        <span className="text-[8px] font-black text-amber-400 uppercase block mb-1">Market Multiplier</span>
+                        <span className="text-xl font-mono font-bold text-amber-300">x{impact}</span>
                       </div>
                     </div>
                   )}
@@ -325,7 +326,7 @@ export default function MarketplacePage() {
                       const isSelling = pendingActions.has(sellKey);
 
                       return (
-                        <div key={price.id} className={`p-6 rounded-3xl border transition-all ${isHighDemand ? "bg-green-500/5 border-green-500/30" : "bg-black/40 border-zinc-800/50"}`}>
+                        <div key={price.id} className={`p-6 rounded-lg border transition-all ${isHighDemand ? "bg-green-500/10 border-green-600/40" : "bg-[rgba(var(--panel-bg-rgb),0.75)] border-[var(--game-border)]"}`}>
                           <div className="flex justify-between items-start mb-4">
                             <span className="text-4xl">{CROPS[price.cropType]?.emoji}</span>
                             <div className="text-right">
@@ -348,11 +349,10 @@ export default function MarketplacePage() {
                               <button
                                 disabled={money < price.price || isBuying}
                                 onClick={() => handleBuy(price, region)}
-                                className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                                  money >= price.price && !isBuying
-                                    ? "bg-blue-500 hover:bg-blue-400 text-black active:scale-95 shadow-lg"
-                                    : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+                                className={`btn-game w-full ${
+                                  money >= price.price && !isBuying ? "btn-game-blue" : "btn-game-dark"
                                 }`}
+                                style={{ fontSize: "10px", padding: "10px 10px" }}
                               >
                                 {isBuying ? "..." : `Buy 1 ($${price.price})`}
                               </button>
@@ -360,11 +360,10 @@ export default function MarketplacePage() {
                               <button
                                 disabled={inStock === 0 || isSelling}
                                 onClick={() => sellCropToRegion(price.cropType, region.id, price.price)}
-                                className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                                  inStock > 0 && !isSelling
-                                    ? "bg-zinc-100 hover:bg-white text-black active:scale-95 shadow-lg"
-                                    : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+                                className={`btn-game w-full ${
+                                  inStock > 0 && !isSelling ? "btn-game-yellow" : "btn-game-dark"
                                 }`}
+                                style={{ fontSize: "10px", padding: "10px 10px" }}
                               >
                                 {isSelling ? "..." : inStock > 0 ? "Sell 1" : "No Stock"}
                               </button>
@@ -379,6 +378,7 @@ export default function MarketplacePage() {
             })}
           </div>
 
+          </div>
         </div>
       </div>
     </div>

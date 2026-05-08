@@ -361,6 +361,7 @@ export default function FarmPage() {
     .map((eventYear, index) => ({ level: index + 1, year: eventYear }));
 
   const nextEraEntry = levelYearPairs.find(p => p.year > year);
+  const warehouseItems = inventory.filter((item) => item.quantity > 0);
 
   useEffect(() => {
     const keys = Object.keys(CROPS).filter(k => !CROPS[k].itemType || CROPS[k].itemType === "crop");
@@ -389,7 +390,7 @@ export default function FarmPage() {
     { icon: "🌐", label: "Exchange",          href: "/section",     active: false },
     { icon: "🗺️", label: "World Map",        href: null,           active: false },
     { icon: "🏆", label: "Achievements",      href: null,           active: false },
-    { icon: "👑", label: "Leaderboard",       href: null,           active: false },
+    { icon: "👑", label: "Leaderboard",       href: "/leaderboard", active: false },
   ];
 
   const eventImages: Record<string, string> = {
@@ -618,127 +619,323 @@ export default function FarmPage() {
           )}
         </div>
 
-        {/* RIGHT PANEL */}
-        <aside className="w-80 flex flex-col shrink-0 overflow-hidden bg-[var(--panel-bg)]">
-          <div className="px-3 py-2 border-b border-zinc-700 text-[11px] text-zinc-500 uppercase tracking-widest shrink-0" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"9px"}}>RIGHT PANEL</div>
+       {/* RIGHT PANEL */}
+<aside className="w-80 flex flex-col shrink-0 overflow-hidden bg-[var(--panel-bg)]">
 
-          {/* Global Event */}
-          {event && (
-            <div className="border-b border-zinc-700 p-3 shrink-0">
-              <div className="text-[10px] text-yellow-500 uppercase tracking-widest mb-1.5">GLOBAL EVENT</div>
-              <div className="border border-yellow-700/30 bg-yellow-950/10 p-2 rounded-lg">
-                {eventImage ? (
-                  <div className="relative overflow-hidden rounded border border-yellow-700/30">
-                    <img
-                      src={eventImage}
-                      alt={event.name}
-                      className="w-full h-28 object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <div className="text-[11px] font-bold text-yellow-300">"{event.name}"</div>
-                      <div className="text-[10px] text-zinc-200 mt-0.5 leading-snug">{event.description}</div>
-                      {event.effects.priceMultiplier && (
-                        <div className="text-[10px] text-yellow-400 mt-1">Market Boost +{((event.effects.priceMultiplier - 1) * 100).toFixed(0)}%</div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded border border-yellow-700/30 p-2">
-                    <div className="text-sm font-bold text-yellow-300">"{event.name}"</div>
-                    <div className="text-[10px] text-zinc-400 mt-1 leading-relaxed">{event.description}</div>
-                    {event.effects.priceMultiplier && (
-                      <div className="text-[10px] text-yellow-500 mt-1">Market Boost +{((event.effects.priceMultiplier - 1) * 100).toFixed(0)}%</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+  <div className="px-3 py-2 border-b border-zinc-700 text-[11px] text-zinc-500 uppercase tracking-widest shrink-0"
+    style={{fontFamily:"'Press Start 2P',monospace",fontSize:"9px"}}
+  >
+    RIGHT PANEL
+  </div>
 
-          {/* Market Panel */}
-          {npc && marketPrices.length > 0 && (
-            <div className="border-b border-zinc-700 p-3 flex-1 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between mb-2 shrink-0">
-                <div className="text-[10px] text-zinc-500 uppercase tracking-widest">MARKET PANEL</div>
-                <span className="text-[9px] text-zinc-600">{npc.name}</span>
-              </div>
-              <div className="rounded-md border border-zinc-800 bg-[rgba(var(--panel-bg-rgb),0.7)] p-2 space-y-1 flex-1 overflow-y-auto custom-scrollbar">
-                {marketPrices.map(p => {
-                  const d = p.demand / (p.supply + p.demand + 0.001);
-                  const badge = d > 0.65 ? {l:"VERY HIGH",c:"text-purple-400"} : d > 0.5 ? {l:"HIGH",c:"text-green-400"} : d > 0.35 ? {l:"MEDIUM",c:"text-yellow-400"} : {l:"LOW",c:"text-red-400"};
-                  return (
-                    <div key={p.id} className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded hover:bg-[rgba(var(--card-bg-rgb),0.7)]">
-                      <span>{CROPS[p.cropType]?.emoji}</span>
-                      <span className="text-zinc-300 flex-1">{p.cropType}</span>
-                      <span className="text-green-400 font-bold">${p.price}</span>
-                      <span className={`text-[9px] ${badge.c}`}>{badge.l}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+  {/* Global Event */}
+  {event && (
+    <div className="border-b border-zinc-700 p-3 shrink-0">
+      <div className="text-[10px] text-yellow-500 uppercase tracking-widest mb-1.5">
+        GLOBAL EVENT
+      </div>
 
-          {/* Quick Actions */}
-          <div className="p-3 shrink-0">
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2">QUICK ACTIONS</div>
-            <div className="grid grid-cols-2 gap-1.5">
-              <Link href="/crafting" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>⚙️ Crafting</Link>
-              <Link href="/marketplace" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>🏪 Market</Link>
-              <button onClick={() => setShowMap(true)} className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>🗺️ World Map</button>
-              <Link href="/section" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>💬 Chat</Link>
+      <div className="border border-yellow-700/30 bg-yellow-950/10 p-2 rounded-lg">
+        {eventImage ? (
+          <div className="relative overflow-hidden rounded border border-yellow-700/30">
+            <img
+              src={eventImage}
+              alt={event.name}
+              className="w-full h-28 object-cover"
+            />
+
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+            <div className="absolute bottom-2 left-2 right-2">
+              <div className="text-[11px] font-bold text-yellow-300">
+                "{event.name}"
+              </div>
+
+              <div className="text-[10px] text-zinc-200 mt-0.5 leading-snug">
+                {event.description}
+              </div>
+
+              {event.effects.priceMultiplier && (
+                <div className="text-[10px] text-yellow-400 mt-1">
+                  Market Boost +
+                  {((event.effects.priceMultiplier - 1) * 100).toFixed(0)}%
+                </div>
+              )}
             </div>
           </div>
-        </aside>
+        ) : (
+          <div className="rounded border border-yellow-700/30 p-2">
+            <div className="text-sm font-bold text-yellow-300">
+              "{event.name}"
+            </div>
+
+            <div className="text-[10px] text-zinc-400 mt-1 leading-relaxed">
+              {event.description}
+            </div>
+
+            {event.effects.priceMultiplier && (
+              <div className="text-[10px] text-yellow-500 mt-1">
+                Market Boost +
+                {((event.effects.priceMultiplier - 1) * 100).toFixed(0)}%
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )}
+
+  {/* Market Panel */}
+  {npc && marketPrices.length > 0 && (
+    <div className="border-b border-zinc-700 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] text-zinc-500 uppercase tracking-widest">
+          MARKET PANEL
+        </div>
+
+        <span className="text-[9px] text-zinc-600">
+          {npc.name}
+        </span>
+      </div>
+
+      <div className="rounded-md border border-zinc-800 bg-[rgba(var(--panel-bg-rgb),0.7)] p-2 space-y-1 max-h-56 overflow-y-auto custom-scrollbar">
+        {marketPrices.map((p) => {
+          const d = p.demand / (p.supply + p.demand + 0.001);
+
+          const badge =
+            d > 0.65
+              ? { l: "VERY HIGH", c: "text-purple-400" }
+              : d > 0.5
+              ? { l: "HIGH", c: "text-green-400" }
+              : d > 0.35
+              ? { l: "MEDIUM", c: "text-yellow-400" }
+              : { l: "LOW", c: "text-red-400" };
+
+          return (
+            <div
+              key={p.id}
+              className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded hover:bg-[rgba(var(--card-bg-rgb),0.7)]"
+            >
+              <span>{CROPS[p.cropType]?.emoji}</span>
+
+              <span className="text-zinc-300 flex-1">
+                {p.cropType}
+              </span>
+
+              <span className="text-green-400 font-bold">
+                ${p.price}
+              </span>
+
+              <span className={`text-[9px] ${badge.c}`}>
+                {badge.l}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  )}
+
+  {/* Warehouse */}
+  <div className="border-b border-zinc-700 p-3 shrink-0">
+    <div className="flex items-center justify-between mb-2">
+      <div className="text-[10px] text-zinc-500 uppercase tracking-widest">
+        WAREHOUSE
+      </div>
+
+      <span className="text-[9px] text-zinc-600">
+        {warehouseItems.length} items
+      </span>
+    </div>
+
+    {warehouseItems.length === 0 ? (
+      <div className="text-[10px] text-zinc-600 border border-zinc-800 rounded p-2 text-center">
+        EMPTY
+      </div>
+    ) : (
+      <div className="rounded-md border border-zinc-800 bg-[rgba(var(--panel-bg-rgb),0.7)] p-2 space-y-1 max-h-40 overflow-y-auto custom-scrollbar">
+        {warehouseItems.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center gap-2 text-[11px] px-2 py-1.5 rounded hover:bg-[rgba(var(--card-bg-rgb),0.7)]"
+          >
+            <span>{CROPS[item.cropType]?.emoji}</span>
+
+            <span className="text-zinc-300 flex-1">
+              {CROPS[item.cropType]?.name || item.cropType}
+            </span>
+
+            <span className="text-yellow-400 font-bold">
+              x{item.quantity}
+            </span>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+
+  {/* Quick Actions */}
+  <div className="p-3 shrink-0">
+    <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2">
+      QUICK ACTIONS
+    </div>
+
+    <div className="grid grid-cols-2 gap-1.5">
+      <Link
+        href="/crafting"
+        className="btn-game btn-game-dark w-full"
+        style={{fontSize:"10px",padding:"8px 6px"}}
+      >
+        ⚙️ Crafting
+      </Link>
+
+      <Link
+        href="/marketplace"
+        className="btn-game btn-game-dark w-full"
+        style={{fontSize:"10px",padding:"8px 6px"}}
+      >
+        🏪 Market
+      </Link>
+
+      <button
+        onClick={() => setShowMap(true)}
+        className="btn-game btn-game-dark w-full"
+        style={{fontSize:"10px",padding:"8px 6px"}}
+      >
+        🗺️ World Map
+      </button>
+
+      <Link
+        href="/section"
+        className="btn-game btn-game-dark w-full"
+        style={{fontSize:"10px",padding:"8px 6px"}}
+      >
+        💬 Chat
+      </Link>
+    </div>
+  </div>
+
+</aside>
       </div>
 
       {/* ——— BOTTOM ROW ——— */}
-      <div className="flex border-t border-zinc-700 shrink-0 bg-[var(--panel-bg)]" style={{height:"130px"}}>
+      <div
+        className="flex border-t border-zinc-700 shrink-0 bg-[var(--panel-bg)]"
+        style={{ height: "130px" }}
+      >
 
         {/* Global Chat */}
         <div className="flex-1 border-r border-zinc-700 flex flex-col overflow-hidden">
-          <div className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"7px"}}>GLOBAL CHAT</div>
-          <div className="flex-1 px-3 py-2 overflow-y-auto custom-scrollbar">
-            <div className="text-[9px] text-zinc-600 italic">[chat messages....]</div>
+          <div
+            className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0"
+            style={{ fontFamily: "'Press Start 2P',monospace", fontSize: "7px" }}
+          >
+            GLOBAL CHAT
           </div>
+
+          <div className="flex-1 px-3 py-2 overflow-y-auto custom-scrollbar">
+            <div className="text-[9px] text-zinc-600 italic">
+              [chat messages....]
+            </div>
+          </div>
+
           <div className="border-t border-zinc-800 px-3 py-1 shrink-0">
-            <Link href="/section" className="btn-game btn-game-dark" style={{fontSize:"8px",padding:"4px 8px"}}>💬 OPEN CHAT</Link>
+            <Link
+              href="/section"
+              className="btn-game btn-game-dark"
+              style={{ fontSize: "8px", padding: "4px 8px" }}
+            >
+              💬 OPEN CHAT
+            </Link>
           </div>
         </div>
 
         {/* Time Travel */}
         <div className="flex-1 border-r border-zinc-700 flex flex-col">
-          <div className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"7px"}}>TIME TRAVEL</div>
+          <div
+            className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0"
+            style={{ fontFamily: "'Press Start 2P',monospace", fontSize: "7px" }}
+          >
+            TIME TRAVEL
+          </div>
+
           <div className="flex-1 flex items-center justify-between px-4">
             <div>
-              <div className="text-[9px] text-zinc-500 mb-1">Current Era → <span className="text-indigo-400 font-bold">{year}</span></div>
-              {nextEraEntry && <div className="text-[9px] text-zinc-500 mb-2">Next Era → <span className="text-purple-400 font-bold">{nextEraEntry.year}</span></div>}
-              <div className="w-32 h-1.5 bg-[rgba(var(--card-bg-rgb),0.7)] overflow-hidden">
-                <div className="h-full bg-indigo-500 transition-all" style={{width: `${Math.min(100,(xp % 15) / 15 * 100)}%`}} />
+              <div className="text-[9px] text-zinc-500 mb-1">
+                Current Era →{" "}
+                <span className="text-indigo-400 font-bold">
+                  {year}
+                </span>
               </div>
-              <div className="text-[8px] text-zinc-600 mt-0.5">{xp % 15}/15 era XP</div>
+
+              {nextEraEntry && (
+                <div className="text-[9px] text-zinc-500 mb-2">
+                  Next Era →{" "}
+                  <span className="text-purple-400 font-bold">
+                    {nextEraEntry.year}
+                  </span>
+                </div>
+              )}
+
+              <div className="w-32 h-1.5 bg-[rgba(var(--card-bg-rgb),0.7)] overflow-hidden">
+                <div
+                  className="h-full bg-indigo-500 transition-all"
+                  style={{
+                    width: `${Math.min(100, (xp % 15) / 15 * 100)}%`,
+                  }}
+                />
+              </div>
+
+              <div className="text-[8px] text-zinc-600 mt-0.5">
+                {xp % 15}/15 era XP
+              </div>
             </div>
-            <button onClick={advanceTime} className="btn-game btn-game-indigo" style={{fontSize:"9px"}}>⏳ ADVANCE ERA</button>
+
+            <button
+              onClick={advanceTime}
+              className="btn-game btn-game-indigo"
+              style={{ fontSize: "9px" }}
+            >
+              ⏳ ADVANCE ERA
+            </button>
           </div>
         </div>
 
         {/* Daily Rewards */}
         <div className="flex-1 flex flex-col">
-          <div className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"7px"}}>DAILY REWARDS</div>
+          <div
+            className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0"
+            style={{ fontFamily: "'Press Start 2P',monospace", fontSize: "7px" }}
+          >
+            DAILY REWARDS
+          </div>
+
           <div className="flex-1 flex items-center px-3 gap-1.5">
             {[
-              {day:1,icon:"✅",label:"$500"},
-              {day:2,icon:"💎",label:"x10"},
-              {day:3,icon:"🌾",label:"x1"},
-              {day:4,icon:"⭐",label:"$1,000"},
-              {day:5,icon:"💰",label:"x20"},
-              {day:6,icon:"🎁",label:"x1"},
-            ].map(r => (
-              <div key={r.day} className={`flex flex-col items-center border p-1.5 flex-1 ${r.day === 1 ? "border-green-600 bg-green-950/20" : "border-zinc-700"}`}>
-                <div className="text-[8px] text-zinc-500">Day {r.day}</div>
+              { day: 1, icon: "✅", label: "$500" },
+              { day: 2, icon: "💎", label: "x10" },
+              { day: 3, icon: "🌾", label: "x1" },
+              { day: 4, icon: "⭐", label: "$1,000" },
+              { day: 5, icon: "💰", label: "x20" },
+              { day: 6, icon: "🎁", label: "x1" },
+            ].map((r) => (
+              <div
+                key={r.day}
+                className={`flex flex-col items-center border p-1.5 flex-1 ${
+                  r.day === 1
+                    ? "border-green-600 bg-green-950/20"
+                    : "border-zinc-700"
+                }`}
+              >
+                <div className="text-[8px] text-zinc-500">
+                  Day {r.day}
+                </div>
+
                 <div className="text-base">{r.icon}</div>
-                <div className="text-[7px] text-zinc-500">{r.label}</div>
+
+                <div className="text-[7px] text-zinc-500">
+                  {r.label}
+                </div>
               </div>
             ))}
           </div>
@@ -747,4 +944,3 @@ export default function FarmPage() {
     </div>
   );
 }
-
