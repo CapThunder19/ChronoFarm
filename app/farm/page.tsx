@@ -7,6 +7,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDisconnect } from "wagmi";
 import { clearWalletSession, getStoredWalletAddress } from "@/lib/wallet-session";
+import { Globe, X, Send, Activity } from "lucide-react";
+
+type ChatMessage = {
+  id: string;
+  walletAddress: string;
+  displayName: string;
+  message: string;
+  createdAt: string;
+};
 
 export default function FarmPage() {
   const router = useRouter();
@@ -38,6 +47,11 @@ export default function FarmPage() {
   const statusInFlight = useRef(false);
   const pricesInFlight = useRef(false);
   const initialLoadRef = useRef(true);
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatDraft, setChatDraft] = useState("");
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const walletFetch = async (url: string, options?: RequestInit) => {
     const wallet = walletAddress || getStoredWalletAddress();
@@ -116,7 +130,54 @@ export default function FarmPage() {
     } catch (err) {
       console.error("Failed to update prices", err);
     } finally {
-      pricesInFlight.current = false;
+      statusInFlight.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!walletAddress) return;
+    const streamUrl = `/api/chat/stream?since=${Date.now() - 60_000}`;
+    const source = new EventSource(streamUrl);
+
+    source.addEventListener("messages", (event) => {
+      const payload = JSON.parse((event as MessageEvent<string>).data) as { messages?: ChatMessage[] };
+      setMessages((prev) => {
+        const newMsgs = payload.messages ?? [];
+        const existingIds = new Set(prev.map((m) => m.id));
+        const filtered = newMsgs.filter((m) => !existingIds.has(m.id));
+        return [...prev, ...filtered].slice(-50);
+      });
+      
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 50);
+    });
+
+    return () => source.close();
+  }, [walletAddress]);
+
+  const sendChat = async () => {
+    const msg = chatDraft.trim();
+    if (!msg) return;
+
+    try {
+      setChatDraft("");
+      await walletFetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg }),
+      });
+    } catch (error) {
+      console.error("Chat send failed");
+    }
+  };
+
+  const handleChatKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChat();
     }
   };
 
@@ -898,20 +959,24 @@ export default function FarmPage() {
             GLOBAL CHAT
           </div>
 
-          <div className="flex-1 px-3 py-2 overflow-y-auto custom-scrollbar">
-            <div className="text-[9px] text-zinc-600 italic">
-              [chat messages....]
-            </div>
+          <div className="flex-1 px-3 py-2 overflow-y-auto custom-scrollbar flex flex-col justify-end space-y-2">
+            {messages.slice(-3).map((msg, i) => (
+              <div key={msg.id || i} className="text-[9px] flex flex-col gap-0.5 border-b border-zinc-800/30 pb-1">
+                <span className={msg.displayName === "SYSTEM" ? "text-emerald-500 font-bold" : "text-[var(--highlight)] font-bold"}>{msg.displayName}</span>
+                <span className={msg.displayName === "SYSTEM" ? "text-emerald-400 italic" : "text-zinc-400"}>{msg.message}</span>
+              </div>
+            ))}
+            {messages.length === 0 && <div className="text-[9px] text-zinc-600 italic">No communications.</div>}
           </div>
 
           <div className="border-t border-zinc-800 px-3 py-1 shrink-0">
-            <Link
-              href="/section"
-              className="btn-game btn-game-dark"
+            <button
+              onClick={() => setShowChatModal(true)}
+              className="btn-game btn-game-dark w-full text-left"
               style={{ fontSize: "8px", padding: "4px 8px" }}
             >
-              💬 OPEN CHAT
-            </Link>
+              💭 OPEN CHAT
+            </button>
           </div>
         </div>
 
@@ -1006,6 +1071,63 @@ export default function FarmPage() {
           </div>
         </div>
       </div>
+      {/* Chat Modal */}
+      {showChatModal && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[var(--panel-bg)] border border-[var(--game-border)] rounded-xl w-full max-w-xl shadow-[0_0_50px_rgba(214,168,95,0.15)] flex flex-col h-[600px] overflow-hidden">
+            <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between bg-black/20 shrink-0">
+              <h3 className="text-sm font-bold text-[var(--highlight)] tracking-widest uppercase flex items-center gap-2">
+                <Globe className="w-4 h-4" /> GLOBAL CHAT
+              </h3>
+              <button onClick={() => setShowChatModal(false)} className="text-zinc-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+              {messages.map((msg, i) => {
+                const isSystem = msg.displayName === "SYSTEM";
+                return (
+                  <div key={msg.id || i} className="flex items-start gap-4 p-3 hover:bg-zinc-900/30 rounded-lg transition-colors border-b border-zinc-800/30">
+                    <div className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 ${isSystem ? "bg-emerald-900/20 text-emerald-500 border-emerald-800" : "bg-[#111a13] border-zinc-700 text-lg shadow-inner"}`}>
+                      {isSystem ? <Activity className="w-5 h-5" /> : "👨‍🌾"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between mb-1">
+                        <span className={`text-sm font-bold ${isSystem ? "text-emerald-500" : "text-[var(--highlight)]"} truncate`}>{msg.displayName}</span>
+                        <span className="text-[10px] text-zinc-500 tracking-widest shrink-0">{new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      </div>
+                      <p className={`text-sm leading-relaxed ${isSystem ? "text-emerald-400 italic" : "text-zinc-300"}`}>
+                        {msg.message}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              {messages.length === 0 && <div className="text-center text-zinc-500 text-xs italic tracking-widest uppercase py-10">No communications.</div>}
+            </div>
+
+            <div className="p-4 border-t border-zinc-800 bg-[#0a0f0a] shrink-0">
+              <div className="flex gap-3 relative">
+                <textarea
+                  value={chatDraft}
+                  onChange={(e) => setChatDraft(e.target.value)}
+                  onKeyDown={handleChatKeyDown}
+                  placeholder="Broadcast message..."
+                  rows={1}
+                  className="flex-1 bg-[rgba(255,255,255,0.03)] border border-zinc-700 focus:border-[var(--highlight)] text-zinc-200 text-sm rounded-lg px-4 py-3 outline-none resize-none overflow-hidden transition-colors"
+                />
+                <button
+                  onClick={sendChat}
+                  disabled={!chatDraft.trim()}
+                  className="bg-emerald-900/40 hover:bg-emerald-800/60 border border-emerald-700/50 text-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed px-6 rounded-lg font-bold tracking-widest text-xs flex items-center justify-center gap-2 transition-colors"
+                >
+                  SEND <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
