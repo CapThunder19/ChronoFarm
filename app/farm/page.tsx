@@ -275,6 +275,11 @@ export default function FarmPage() {
           void loadStatus({ force: true });
         } else {
           setMessage(data.message || `Harvested ${cropCfg?.name}!`);
+          setXp(prev => {
+            const nextXp = prev + 5;
+            setLevel(Math.floor(nextXp / 100) + 1);
+            return nextXp;
+          });
           // Sync real state in background
           void loadStatus();
         }
@@ -284,6 +289,64 @@ export default function FarmPage() {
       void loadStatus({ force: true });
     } finally {
       setIsActionPending(false);
+    }
+  };
+
+  // ---------------- HARVEST ALL ----------------
+
+  const handleHarvestAll = async () => {
+    if (isActionPending) return;
+    const readyCrops = crops.filter(c => fmtTimer(c).ready);
+    if (readyCrops.length === 0) return;
+
+    setIsActionPending(true);
+    const harvestedTypes: Record<string, number> = {};
+    let xpGained = 0;
+
+    try {
+      // Optimistically update UI for all crops
+      setCrops(prev => prev.filter(c => !fmtTimer(c).ready));
+      
+      for (const crop of readyCrops) {
+        harvestedTypes[crop.type] = (harvestedTypes[crop.type] || 0) + 1;
+        xpGained += 5;
+
+        // Fire off backend requests concurrently for speed
+        walletFetch("/api/harvest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tileIndex: crop.tileIndex }),
+        }).catch(console.error);
+      }
+      
+      // Optimistic inventory update
+      setInventory(prev => {
+        let newInv = [...prev];
+        for (const [cType, qty] of Object.entries(harvestedTypes)) {
+          const existing = newInv.find(i => i.cropType === cType);
+          if (existing) {
+            newInv = newInv.map(i => i.cropType === cType ? { ...i, quantity: i.quantity + qty } : i);
+          } else {
+            newInv.push({ id: `inv-temp-${cType}`, cropType: cType, quantity: qty });
+          }
+        }
+        return newInv;
+      });
+
+      // Optimistic XP update
+      setXp(prev => {
+        const nextXp = prev + xpGained;
+        setLevel(Math.floor(nextXp / 100) + 1);
+        return nextXp;
+      });
+
+      setMessage(`Harvested ${readyCrops.length} crops!`);
+    } catch {
+      setMessage("Harvest All failed");
+    } finally {
+      setIsActionPending(false);
+      // Sync real state after requests settle
+      setTimeout(() => void loadStatus({ force: true }), 1500);
     }
   };
 
@@ -606,7 +669,7 @@ export default function FarmPage() {
                   </div>
                   {/* Action buttons */}
                   <div className="grid grid-cols-3 gap-2">
-                    <button onClick={() => { crops.filter(c => fmtTimer(c).ready).forEach(c => handleTileClick(c.tileIndex)); }}
+                    <button onClick={handleHarvestAll}
                       className="btn-game btn-game-green w-full" style={{fontSize:"10px"}}>🧺 HARVEST ALL</button>
                     <button onClick={() => void loadStatus({force:true})}
                       className="btn-game btn-game-blue w-full" style={{fontSize:"10px"}}>💧 REFRESH</button>
