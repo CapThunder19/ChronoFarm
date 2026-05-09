@@ -137,6 +137,7 @@ export default function FarmPage() {
   const [level, setLevel] = useState(1);
   const [totalXp, setTotalXp] = useState(0);
   const [farmsState, setFarmsState] = useState<any[]>([]);
+  const [activeFarmId, setActiveFarmId] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState("");
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [showIntro, setShowIntro] = useState(false);
@@ -206,6 +207,8 @@ export default function FarmPage() {
       setTotalXp(serverXp);
       setLevel(data.level ?? calculateLevelProgress(serverXp).level);
       setFarmsState(data.farms ?? []);
+      const activeFarm = (data.farms ?? []).find((farm: any) => farm.regionId === data.currentRegion?.id) ?? data.farms?.[0] ?? null;
+      setActiveFarmId(activeFarm?.id ?? null);
       
       if (serverXp === 0 && (data.crops?.length || 0) === 0 && (data.inventory?.length || 0) === 0) {
         isNew = true;
@@ -302,8 +305,9 @@ export default function FarmPage() {
   useEffect(() => {
     if (isBootstrapping) return;
     if (level !== 1) return;
+    if (!activeFarmId) return;
     const hasSeenIntro = localStorage.getItem("chronofarm_intro_seen");
-    const hasSeenTutorial = localStorage.getItem("chronofarm_tutorial_seen");
+    const hasSeenTutorial = localStorage.getItem(`chronofarm_tutorial_seen_${activeFarmId}`);
     
     // Only trigger if intro is done and the user has never completed the newbie guide.
     if (tutorialStep === 0 && !showIntro) {
@@ -311,7 +315,7 @@ export default function FarmPage() {
         setTutorialStep(1);
       }
     }
-  }, [isBootstrapping, showIntro, level, tutorialStep]);
+  }, [isBootstrapping, showIntro, level, tutorialStep, activeFarmId]);
 
   useEffect(() => {
     if (tutorialStep === 4) {
@@ -742,6 +746,9 @@ export default function FarmPage() {
               <button className="btn-game btn-game-green self-center text-xs px-8 py-2" onClick={() => {
                 if (tutorialStep === 9) {
                    setTutorialStep(0);
+                   if (activeFarmId) {
+                    localStorage.setItem(`chronofarm_tutorial_seen_${activeFarmId}`, "true");
+                   }
                    localStorage.setItem("chronofarm_tutorial_seen", "true");
                 } else if (tutorialStep === 10) {
                    setTutorialStep(11);
