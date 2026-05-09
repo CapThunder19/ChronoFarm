@@ -567,10 +567,11 @@ export default function FarmPage() {
       });
 
       // Optimistic XP update
-      setXp(prev => {
-        const nextXp = prev + xpGained;
-        setLevel(Math.floor(nextXp / 100) + 1);
-        return nextXp;
+      setTotalXp(prev => {
+        const nextTotal = prev + xpGained;
+        const progress = calculateLevelProgress(nextTotal);
+        setLevel(progress.level);
+        return nextTotal;
       });
 
       setMessage(`Harvested ${readyCrops.length} crops!`);
