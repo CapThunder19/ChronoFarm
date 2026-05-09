@@ -302,18 +302,16 @@ export default function FarmPage() {
   useEffect(() => {
     if (isBootstrapping) return;
     if (level !== 1) return;
-    const isNewAccount = totalXp === 0 && crops.length === 0 && inventory.length === 0 && level === 1;
     const hasSeenIntro = localStorage.getItem("chronofarm_intro_seen");
     const hasSeenTutorial = localStorage.getItem("chronofarm_tutorial_seen");
     
-    // Only trigger if we haven't started yet and the intro is finished
+    // Only trigger if intro is done and the user has never completed the newbie guide.
     if (tutorialStep === 0 && !showIntro) {
-      // Trigger if they are a brand new account OR they haven't seen it yet
-      if (isNewAccount || (!hasSeenTutorial && hasSeenIntro)) {
+      if (!hasSeenTutorial && hasSeenIntro) {
         setTutorialStep(1);
       }
     }
-  }, [isBootstrapping, showIntro, totalXp, crops.length, inventory.length, level, tutorialStep]);
+  }, [isBootstrapping, showIntro, level, tutorialStep]);
 
   useEffect(() => {
     if (tutorialStep === 4) {
@@ -343,17 +341,14 @@ export default function FarmPage() {
     const prevLevel = previousLevelRef.current;
     if (prevLevel < 2 && level >= 2) {
       const hasSeenUnlockFlow = localStorage.getItem("chronofarm_marketplace_unlock_seen");
-      if (!hasSeenUnlockFlow) {
+      if (!hasSeenUnlockFlow && tutorialStep === 0) {
         localStorage.setItem("chronofarm_marketplace_unlock_seen", "true");
-        localStorage.setItem("chronofarm_marketplace_pending_guide", "true");
-        localStorage.setItem("chronofarm_tutorial_seen", "true");
-        setTutorialStep(0);
-        router.push("/marketplace?guide=1");
+        setTutorialStep(10);
       }
     }
 
     previousLevelRef.current = level;
-  }, [isBootstrapping, level, showIntro, router]);
+  }, [isBootstrapping, level, showIntro, tutorialStep]);
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -740,16 +735,20 @@ export default function FarmPage() {
               {tutorialStep === 7 && "Nice harvest! Your crops are automatically stored in your Warehouse on the right. You can sell them at the Market or use them to craft upgrades later."}
               {tutorialStep === 8 && "Notice the Timeline at the bottom. As you level up, you can Advance Time to reach new eras and trigger global events."}
               {tutorialStep === 9 && "Check your Level and EXP in the top bar. Keep farming to level up! Remember: Some features remain locked until you prove yourself."}
+              {tutorialStep === 10 && "Level 2 reached! Marketplace is now unlocked. We'll highlight the Market button for you."}
+              {tutorialStep === 11 && "Click the glowing MARKET button in Quick Actions to enter the Marketplace. Its full guide will open there."}
             </div>
-            {(tutorialStep === 1 || tutorialStep === 7 || tutorialStep === 8 || tutorialStep === 9) && (
+            {(tutorialStep === 1 || tutorialStep === 7 || tutorialStep === 8 || tutorialStep === 9 || tutorialStep === 10) && (
               <button className="btn-game btn-game-green self-center text-xs px-8 py-2" onClick={() => {
                 if (tutorialStep === 9) {
                    setTutorialStep(0);
                    localStorage.setItem("chronofarm_tutorial_seen", "true");
+                } else if (tutorialStep === 10) {
+                   setTutorialStep(11);
                 } else {
                    setTutorialStep(tutorialStep + 1);
                 }
-              }}>{tutorialStep === 9 ? "START FARMING" : "NEXT"}</button>
+              }}>{tutorialStep === 9 ? "START FARMING" : tutorialStep === 10 ? "SHOW MARKET BUTTON" : "NEXT"}</button>
             )}
           </div>
         </div>
@@ -1365,8 +1364,14 @@ export default function FarmPage() {
       ) : (
         <Link
           href="/marketplace"
-          className="btn-game btn-game-dark w-full"
+          className={`btn-game btn-game-dark w-full ${tutorialStep === 11 ? "z-50 relative pointer-events-auto ring-4 ring-emerald-400 ring-offset-2 ring-offset-black animate-pulse" : ""}`}
           style={{fontSize:"10px",padding:"8px 6px"}}
+          onClick={() => {
+            if (tutorialStep === 11) {
+              localStorage.setItem("chronofarm_marketplace_pending_guide", "true");
+              setTutorialStep(0);
+            }
+          }}
         >
           🏪 Market
         </Link>
