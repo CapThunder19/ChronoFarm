@@ -27,14 +27,19 @@ export default function MarketplacePage() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [activeFarmId, setActiveFarmId] = useState<string | null>(null);
 
   // Auto-open guide when player is redirected here after first reaching level 2.
   useEffect(() => {
     const forceFromQuery = searchParams.get("guide") === "1";
-    const forceFromUnlock = localStorage.getItem("chronofarm_marketplace_pending_guide") === "true";
+    const forceFromUnlock = activeFarmId
+      ? localStorage.getItem(`chronofarm_marketplace_pending_guide_${activeFarmId}`) === "true"
+      : false;
 
     if (forceFromQuery || forceFromUnlock) {
-      localStorage.removeItem("chronofarm_marketplace_pending_guide");
+      if (activeFarmId) {
+        localStorage.removeItem(`chronofarm_marketplace_pending_guide_${activeFarmId}`);
+      }
       localStorage.removeItem("chronofarm_marketplace_tutorial_seen");
       setTutorialStep(1);
 
@@ -42,7 +47,7 @@ export default function MarketplacePage() {
         router.replace("/marketplace");
       }
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, activeFarmId]);
 
   const statusInFlight = useRef(false);
   const marketsInFlight = useRef(false);
@@ -76,6 +81,8 @@ export default function MarketplacePage() {
       setInventory(data.inventory);
       setRegions(data.regions || []);
       setCurrentRegion(data.currentRegion);
+      const currentFarm = (data.farms || []).find((farm: any) => farm.regionId === data.currentRegion?.id) ?? (data.farms || [])[0] ?? null;
+      setActiveFarmId(currentFarm?.id ?? null);
     } catch (err) {
       console.error("Failed to load marketplace data", err);
     } finally {

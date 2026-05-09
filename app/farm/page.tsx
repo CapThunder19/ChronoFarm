@@ -336,23 +336,31 @@ export default function FarmPage() {
 
   useEffect(() => {
     if (isBootstrapping || showIntro) return;
+    if (!activeFarmId) return;
+
+    const unlockSeenKey = `chronofarm_marketplace_unlock_seen_${activeFarmId}`;
+    const prevLevel = previousLevelRef.current;
+    const hasSeenUnlockFlow = localStorage.getItem(unlockSeenKey);
+
+    if (!hasSeenUnlockFlow && tutorialStep === 0 && level >= 2 && (prevLevel === null || prevLevel < 2)) {
+      localStorage.setItem(unlockSeenKey, "true");
+      setTutorialStep(10);
+    }
 
     if (previousLevelRef.current === null) {
       previousLevelRef.current = level;
       return;
     }
 
-    const prevLevel = previousLevelRef.current;
-    if (prevLevel < 2 && level >= 2) {
-      const hasSeenUnlockFlow = localStorage.getItem("chronofarm_marketplace_unlock_seen");
+    if (prevLevel !== null && prevLevel < 2 && level >= 2) {
       if (!hasSeenUnlockFlow && tutorialStep === 0) {
-        localStorage.setItem("chronofarm_marketplace_unlock_seen", "true");
+        localStorage.setItem(unlockSeenKey, "true");
         setTutorialStep(10);
       }
     }
 
     previousLevelRef.current = level;
-  }, [isBootstrapping, level, showIntro, tutorialStep]);
+  }, [isBootstrapping, level, showIntro, tutorialStep, activeFarmId]);
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -1375,7 +1383,9 @@ export default function FarmPage() {
           style={{fontSize:"10px",padding:"8px 6px"}}
           onClick={() => {
             if (tutorialStep === 11) {
-              localStorage.setItem("chronofarm_marketplace_pending_guide", "true");
+              if (activeFarmId) {
+                localStorage.setItem(`chronofarm_marketplace_pending_guide_${activeFarmId}`, "true");
+              }
               setTutorialStep(0);
             }
           }}
