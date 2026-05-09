@@ -146,6 +146,7 @@ export default function FarmPage() {
   const statusInFlight = useRef(false);
   const pricesInFlight = useRef(false);
   const initialLoadRef = useRef(true);
+  const previousLevelRef = useRef<number | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showChatModal, setShowChatModal] = useState(false);
@@ -300,6 +301,7 @@ export default function FarmPage() {
 
   useEffect(() => {
     if (isBootstrapping) return;
+    if (level !== 1) return;
     const isNewAccount = totalXp === 0 && crops.length === 0 && inventory.length === 0 && level === 1;
     const hasSeenIntro = localStorage.getItem("chronofarm_intro_seen");
     const hasSeenTutorial = localStorage.getItem("chronofarm_tutorial_seen");
@@ -331,20 +333,27 @@ export default function FarmPage() {
   }, [tutorialStep, crops, tick, inventory]);
 
   useEffect(() => {
-    if (isBootstrapping) return;
-    if (level === 2) {
-      const hasSeenLvl2 = localStorage.getItem("chronofarm_tutorial_lvl2_seen");
-      if (!hasSeenLvl2 && tutorialStep === 0 && !showIntro) {
-        setTutorialStep(10);
+    if (isBootstrapping || showIntro) return;
+
+    if (previousLevelRef.current === null) {
+      previousLevelRef.current = level;
+      return;
+    }
+
+    const prevLevel = previousLevelRef.current;
+    if (prevLevel < 2 && level >= 2) {
+      const hasSeenUnlockFlow = localStorage.getItem("chronofarm_marketplace_unlock_seen");
+      if (!hasSeenUnlockFlow) {
+        localStorage.setItem("chronofarm_marketplace_unlock_seen", "true");
+        localStorage.setItem("chronofarm_marketplace_pending_guide", "true");
+        localStorage.setItem("chronofarm_tutorial_seen", "true");
+        setTutorialStep(0);
+        router.push("/marketplace?guide=1");
       }
     }
-  }, [isBootstrapping, level, tutorialStep, showIntro]);
 
-  useEffect(() => {
-    if (tutorialStep === 10 && year === 1910) {
-      advanceTime();
-    }
-  }, [tutorialStep, year]);
+    previousLevelRef.current = level;
+  }, [isBootstrapping, level, showIntro, router]);
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -731,16 +740,12 @@ export default function FarmPage() {
               {tutorialStep === 7 && "Nice harvest! Your crops are automatically stored in your Warehouse on the right. You can sell them at the Market or use them to craft upgrades later."}
               {tutorialStep === 8 && "Notice the Timeline at the bottom. As you level up, you can Advance Time to reach new eras and trigger global events."}
               {tutorialStep === 9 && "Check your Level and EXP in the top bar. Keep farming to level up! Remember: Some features remain locked until you prove yourself."}
-              {tutorialStep === 10 && "You reached Level 2! The Timeline has advanced to 1912. Historical events change global demand and prices. Check the Event Panel!"}
-              {tutorialStep === 11 && "The MARKETPLACE is now unlocked! It's time to sell your harvest for profit. Click the MARKET button below to enter the trading hub."}
             </div>
-            {(tutorialStep === 1 || tutorialStep === 7 || tutorialStep === 8 || tutorialStep === 9 || tutorialStep === 10) && (
+            {(tutorialStep === 1 || tutorialStep === 7 || tutorialStep === 8 || tutorialStep === 9) && (
               <button className="btn-game btn-game-green self-center text-xs px-8 py-2" onClick={() => {
                 if (tutorialStep === 9) {
                    setTutorialStep(0);
                    localStorage.setItem("chronofarm_tutorial_seen", "true");
-                } else if (tutorialStep === 10) {
-                   setTutorialStep(11);
                 } else {
                    setTutorialStep(tutorialStep + 1);
                 }
@@ -1197,7 +1202,7 @@ export default function FarmPage() {
 
   {/* Global Event */}
   {event && (
-    <div className={`border-b border-zinc-700 p-3 shrink-0 ${tutorialStep === 10 ? "z-50 relative pointer-events-auto ring-2 ring-emerald-400" : ""}`}>
+    <div className="border-b border-zinc-700 p-3 shrink-0">
       <div className="text-[10px] text-yellow-500 uppercase tracking-widest mb-1.5">
         GLOBAL EVENT
       </div>
@@ -1360,13 +1365,8 @@ export default function FarmPage() {
       ) : (
         <Link
           href="/marketplace"
-          className={`btn-game btn-game-dark w-full ${tutorialStep === 11 ? "z-50 relative pointer-events-auto ring-4 ring-emerald-400 ring-offset-2 ring-offset-black animate-pulse" : ""}`}
+          className="btn-game btn-game-dark w-full"
           style={{fontSize:"10px",padding:"8px 6px"}}
-          onClick={() => {
-             if (tutorialStep === 11) {
-                localStorage.setItem("chronofarm_tutorial_lvl2_seen", "true");
-             }
-          }}
         >
           🏪 Market
         </Link>

@@ -3,14 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CROPS } from "@/lib/crops";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDisconnect } from "wagmi";
 import { clearWalletSession, getStoredWalletAddress } from "@/lib/wallet-session";
 
 export default function MarketplacePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { disconnectAsync } = useDisconnect();
   const [money, setMoney] = useState(0);
+  const [level, setLevel] = useState(1);
   const [year, setYear] = useState(1910);
   const [event, setEvent] = useState<any>(null);
   const [inventory, setInventory] = useState<any[]>([]);
@@ -26,14 +28,21 @@ export default function MarketplacePage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [tutorialStep, setTutorialStep] = useState(0);
 
-  // Do not auto-open the tutorial on first visit; user can open it via the Guide button.
+  // Auto-open guide when player is redirected here after first reaching level 2.
   useEffect(() => {
-    // keep tutorialStep at 0 by default; preserve the seen flag for future use
-    const mktSeen = localStorage.getItem("chronofarm_marketplace_tutorial_seen");
-    if (!mktSeen) {
-      localStorage.setItem("chronofarm_marketplace_tutorial_seen", "true");
+    const forceFromQuery = searchParams.get("guide") === "1";
+    const forceFromUnlock = localStorage.getItem("chronofarm_marketplace_pending_guide") === "true";
+
+    if (forceFromQuery || forceFromUnlock) {
+      localStorage.removeItem("chronofarm_marketplace_pending_guide");
+      localStorage.removeItem("chronofarm_marketplace_tutorial_seen");
+      setTutorialStep(1);
+
+      if (forceFromQuery) {
+        router.replace("/marketplace");
+      }
     }
-  }, []);
+  }, [searchParams, router]);
 
   const statusInFlight = useRef(false);
   const marketsInFlight = useRef(false);
@@ -61,6 +70,7 @@ export default function MarketplacePage() {
       const data = await res.json();
       if (!res.ok) { setMessage(data.error || "Failed to load"); return; }
       setMoney(data.money);
+      setLevel(data.level ?? 1);
       setYear(data.year);
       setEvent(data.event);
       setInventory(data.inventory);
@@ -110,6 +120,13 @@ export default function MarketplacePage() {
       clearInterval(marketsInterval);
     };
   }, [walletAddress, loadMarketData, loadAllMarkets]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (level < 2) {
+      router.push("/farm");
+    }
+  }, [isLoading, level, router]);
 
   const handleLogout = async () => {
     try { await disconnectAsync(); } catch {}
