@@ -2,7 +2,7 @@ import type { PrismaClient, Region, User } from "@prisma/client";
 import { CROPS } from "@/lib/crops";
 import { walletUserName } from "@/lib/wallet";
 
-const WORLD_SETUP_TTL_MS = 5 * 60 * 1000;
+const WORLD_SETUP_TTL_MS = 0;
 let worldSetupCache: { promise: Promise<Region[]>; expiresAt: number } | null = null;
 
 async function createDefaultRegions(prisma: PrismaClient): Promise<Region[]> {

@@ -13,7 +13,21 @@ type PrismaLike = {
 };
 
 export function getLevelForXp(xp: number) {
-  return Math.floor(xp / 100) + 1;
+  return calculateLevelProgress(xp).level;
+}
+
+export function calculateLevelProgress(totalXp: number) {
+  let level = 1;
+  let remainingXp = totalXp;
+  let requiredForNext = 100;
+
+  while (remainingXp >= requiredForNext) {
+    remainingXp -= requiredForNext;
+    level++;
+    requiredForNext = level * 100; // Level 1->2 is 100xp, 2->3 is 200xp, etc.
+  }
+
+  return { level, currentXp: remainingXp, nextLevelXp: requiredForNext, totalXp };
 }
 
 export function getYearForLevel(level: number) {

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { EVENTS } from "@/lib/events";
 import { getWalletAddressFromRequest, walletUserName } from "@/lib/wallet";
 import { ensureWalletUser } from "@/lib/world";
+import { calculateLevelProgress } from "@/lib/progression";
 
 export async function GET(req: Request) {
   try {
@@ -66,8 +67,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "User farm not found" }, { status: 404 });
     }
 
-    // Always dynamically calculate level based on true XP
-    const realLevel = Math.floor((farm.xp ?? 0) / 100) + 1;
+    const { level: realLevel, currentXp, nextLevelXp } = calculateLevelProgress(farm.xp ?? 0);
 
     // Read year from timeline (no expensive DB write on every poll)
     const year = timeline?.year ?? 1910;
@@ -76,7 +76,9 @@ export async function GET(req: Request) {
     return NextResponse.json({
       money: user.money,
       level: realLevel,
-      xp: farm.xp ?? 0,
+      xp: currentXp,
+      nextLevelXp,
+      totalXp: farm.xp ?? 0,
       farms: user.farms ?? [],
       crops: farm.crops ?? [],
       tiles: farm.tiles ?? [],

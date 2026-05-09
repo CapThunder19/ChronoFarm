@@ -84,8 +84,8 @@ export async function POST(req: Request) {
       create: { userId: farm.userId, cropType: crop.type, quantity: yieldAmount },
     });
 
-    // Grant XP for harvesting (small amount)
-    await prisma.farm.update({ where: { id: farm.id }, data: { xp: { increment: 5 } } });
+    // Grant XP for harvesting
+    await prisma.farm.update({ where: { id: farm.id }, data: { xp: { increment: 10 } } });
 
     // Sync farm level and timeline immediately when XP changes
     await syncProgressionForFarm(prisma, farm.id);

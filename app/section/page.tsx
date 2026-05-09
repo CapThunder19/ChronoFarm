@@ -351,7 +351,7 @@ export default function SectionPage() {
 
       {/* SYSTEM NOTIFICATION */}
       {status && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-2 bg-[var(--panel-bg)] border border-[var(--highlight)] text-[var(--highlight)] text-xs font-bold tracking-widest uppercase rounded shadow-[0_0_15px_rgba(214,168,95,0.2)] animate-pulse flex items-center gap-2">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-2 bg-[var(--panel-bg)] border border-[var(--highlight)] text-[var(--highlight)] text-xs font-bold tracking-widest uppercase rounded shadow-[0_0_15px_rgba(214,168,95,0.2)] flex items-center gap-2">
           <Target className="w-4 h-4" />
           {status}
         </div>

@@ -105,7 +105,7 @@ export default function CraftingPage() {
 
       {/* SYSTEM MESSAGE BANNER */}
       {message && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 px-6 py-2 bg-[var(--panel-bg)] border border-[var(--highlight)] text-[var(--highlight)] text-xs font-bold tracking-widest uppercase rounded shadow-[0_0_15px_rgba(214,168,95,0.2)] animate-pulse flex items-center gap-2">
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 px-6 py-2 bg-[var(--panel-bg)] border border-[var(--highlight)] text-[var(--highlight)] text-xs font-bold tracking-widest uppercase rounded shadow-[0_0_15px_rgba(214,168,95,0.2)] flex items-center gap-2">
           {craftingId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Target className="w-4 h-4" />}
           {message}
         </div>
@@ -138,7 +138,7 @@ export default function CraftingPage() {
           </div>
           <div className="flex flex-col items-center border-l border-zinc-800 pl-10">
             <span className="text-[9px] text-zinc-500 tracking-[0.2em] uppercase mb-0.5">STATUS</span>
-            <span className={`font-bold text-sm ${craftingId ? "text-[var(--highlight)] animate-pulse" : "text-emerald-400"}`}>
+            <span className={`font-bold text-sm ${craftingId ? "text-[var(--highlight)]" : "text-emerald-400"}`}>
               {craftingId ? "ASSEMBLING" : "IDLE"}
             </span>
           </div>

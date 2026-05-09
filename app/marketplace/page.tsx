@@ -24,6 +24,16 @@ export default function MarketplacePage() {
   const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState("all");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [tutorialStep, setTutorialStep] = useState(0);
+
+  // Do not auto-open the tutorial on first visit; user can open it via the Guide button.
+  useEffect(() => {
+    // keep tutorialStep at 0 by default; preserve the seen flag for future use
+    const mktSeen = localStorage.getItem("chronofarm_marketplace_tutorial_seen");
+    if (!mktSeen) {
+      localStorage.setItem("chronofarm_marketplace_tutorial_seen", "true");
+    }
+  }, []);
 
   const statusInFlight = useRef(false);
   const marketsInFlight = useRef(false);
@@ -265,6 +275,17 @@ export default function MarketplacePage() {
             </div>
             <button onClick={handleLogout} className="btn-game btn-game-red !text-[10px] !px-2 !py-1">Disc</button>
           </div>
+          <button
+            title="Open marketplace guide"
+            onClick={() => {
+              // Reset tutorial and show from step 1
+              localStorage.removeItem("chronofarm_marketplace_tutorial_seen");
+              setTutorialStep(1);
+            }}
+            className="border border-[var(--game-border)] bg-[rgba(0,0,0,0.4)] text-[var(--foreground)] px-3 py-1 rounded text-xs"
+          >
+            ? Guide
+          </button>
           <div className="h-6 w-[1px] bg-[var(--game-border)] opacity-50 hidden md:block"></div>
           <Link href="/farm" className="btn-game btn-game-indigo !text-xs">Farm Return</Link>
         </div>
@@ -273,6 +294,32 @@ export default function MarketplacePage() {
       {message && (
         <div className="p-3 bg-blue-900/40 border border-blue-500/50 rounded-lg text-blue-200 text-xs font-mono shrink-0 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
           {">"} {message}
+        </div>
+      )}
+
+      {/* TUTORIAL OVERLAY */}
+      {tutorialStep > 0 && (
+        <div className="fixed inset-0 z-40 bg-black/80 flex items-center justify-center transition-opacity pointer-events-none">
+          <div className="bg-[#0a0f0a] border border-emerald-500/50 p-6 rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] max-w-lg w-full text-center flex flex-col gap-5 pointer-events-auto">
+            <div className="text-emerald-400 font-bold tracking-[0.2em] uppercase text-xs flex items-center justify-center gap-2">
+              MARKETPLACE GUIDE
+            </div>
+            <div className="text-zinc-200 text-sm leading-relaxed tracking-wide min-h-[3rem]">
+              {tutorialStep === 1 && "Welcome to the Global Exchange! This is where you can buy and sell crops across the world."}
+              {tutorialStep === 2 && "Market prices fluctuate wildly based on Supply, Demand, and Global Events. Since we are in 'The Titanic Era', Wheat and Potatoes are selling for a huge premium!"}
+              {tutorialStep === 3 && "Check your Inventory on the left. Use the BUY and SELL buttons in the Resource Grid to execute trades. Buy low, sell high, and become a farming tycoon!"}
+            </div>
+            <button className="btn-game btn-game-green self-center text-xs px-8 py-2" onClick={() => {
+              if (tutorialStep === 3) {
+                setTutorialStep(0);
+                localStorage.setItem("chronofarm_marketplace_tutorial_seen", "true");
+              } else {
+                setTutorialStep(tutorialStep + 1);
+              }
+            }}>
+              {tutorialStep === 3 ? "START TRADING" : "NEXT"}
+            </button>
+          </div>
         </div>
       )}
 

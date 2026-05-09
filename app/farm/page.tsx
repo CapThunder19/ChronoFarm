@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useDisconnect } from "wagmi";
 import { clearWalletSession, getStoredWalletAddress } from "@/lib/wallet-session";
 import { Globe, X, Send, Activity, ChevronLeft, Hexagon, MapPin, Star, Settings, TrendingUp, Diamond, Clock, CircleDollarSign, Compass, Lock, Plane } from "lucide-react";
+import { calculateLevelProgress } from "@/lib/progression";
 
 type ChatMessage = {
   id: string;
@@ -16,6 +17,102 @@ type ChatMessage = {
   message: string;
   createdAt: string;
 };
+
+const INTRO_SCENES = [
+  [
+    "The world is changing.",
+    "",
+    "New technologies emerge.",
+    "Global markets shift.",
+    "Empires rise and collapse.",
+    "",
+    "Only the strongest farmers survive.",
+    "",
+    "Welcome to ChronoFarm."
+  ],
+  [
+    "The year is 1910.",
+    "",
+    "Across the world, crops fail, markets rise,",
+    "and powerful farming empires begin to emerge."
+  ],
+  [
+    "hope you best survive...."
+  ]
+];
+
+function IntroSequence({ onComplete }: { onComplete: () => void }) {
+  const [sceneIdx, setSceneIdx] = useState(0);
+  const [lineIdx, setLineIdx] = useState(0);
+  const [charIdx, setCharIdx] = useState(0);
+  const [showPrompt, setShowPrompt] = useState(false);
+
+  useEffect(() => {
+    if (sceneIdx >= INTRO_SCENES.length) {
+      onComplete();
+      return;
+    }
+
+    const scene = INTRO_SCENES[sceneIdx];
+    
+    if (lineIdx < scene.length) {
+      const line = scene[lineIdx];
+      if (charIdx < line.length) {
+        const timer = setTimeout(() => {
+          setCharIdx(c => c + 1);
+        }, 40); // typing speed
+        return () => clearTimeout(timer);
+      } else {
+        const timer = setTimeout(() => {
+          setLineIdx(l => l + 1);
+          setCharIdx(0);
+        }, 600); // delay between lines
+        return () => clearTimeout(timer);
+      }
+    } else {
+      setShowPrompt(true);
+    }
+  }, [sceneIdx, lineIdx, charIdx, onComplete]);
+
+  const handleNext = () => {
+    if (sceneIdx >= INTRO_SCENES.length) return;
+    const scene = INTRO_SCENES[sceneIdx];
+    
+    if (lineIdx < scene.length) {
+      setLineIdx(scene.length);
+      setCharIdx(0);
+      setShowPrompt(true);
+    } else {
+      setShowPrompt(false);
+      setLineIdx(0);
+      setCharIdx(0);
+      setSceneIdx(s => s + 1);
+    }
+  };
+
+  if (sceneIdx >= INTRO_SCENES.length) return null;
+  const scene = INTRO_SCENES[sceneIdx];
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#050805] flex flex-col items-center justify-center cursor-pointer text-emerald-500" style={{fontFamily:"'Courier New', monospace"}} onClick={handleNext}>
+      <div className="max-w-2xl w-full px-8 text-center text-sm md:text-lg leading-loose tracking-widest drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">
+        {scene.slice(0, lineIdx).map((line, i) => (
+          <div key={i} className="min-h-[1.5em]">{line}</div>
+        ))}
+        {lineIdx < scene.length && (
+          <div className="min-h-[1.5em]">
+            {scene[lineIdx].substring(0, charIdx)}<span className="animate-pulse">_</span>
+          </div>
+        )}
+      </div>
+      {showPrompt && (
+        <div className="absolute bottom-10 text-xs text-emerald-800 animate-pulse tracking-widest uppercase">
+          [ CLICK TO CONTINUE ]
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function FarmPage() {
   const router = useRouter();
@@ -38,10 +135,12 @@ export default function FarmPage() {
   const [selectedCrop, setSelectedCrop] = useState("WHEAT");
   const [message, setMessage] = useState("");
   const [level, setLevel] = useState(1);
-  const [xp, setXp] = useState(0);
+  const [totalXp, setTotalXp] = useState(0);
   const [farmsState, setFarmsState] = useState<any[]>([]);
   const [walletAddress, setWalletAddress] = useState("");
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [showIntro, setShowIntro] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
   const [isActionPending, setIsActionPending] = useState(false);
   const [tick, setTick] = useState(0);
   const statusInFlight = useRef(false);
@@ -81,6 +180,7 @@ export default function FarmPage() {
     if (initialLoadRef.current) {
       setIsBootstrapping(true);
     }
+    let isNew = false;
     try {
       const res = await walletFetch("/api/status");
       const data = await res.json();
@@ -101,11 +201,14 @@ export default function FarmPage() {
       setNpc(data.npc ?? null);
       setRegions(data.regions ?? []);
       setCurrentRegion(data.currentRegion ?? null);
-      // Prefer server-provided level but compute from XP as a fallback
-      const serverXp = data.xp ?? 0;
-      setXp(serverXp);
-      setLevel(data.level ?? (Math.floor(serverXp / 100) + 1));
+      const serverXp = data.totalXp ?? data.xp ?? 0;
+      setTotalXp(serverXp);
+      setLevel(data.level ?? calculateLevelProgress(serverXp).level);
       setFarmsState(data.farms ?? []);
+      
+      if (serverXp === 0 && (data.crops?.length || 0) === 0 && (data.inventory?.length || 0) === 0) {
+        isNew = true;
+      }
     } catch (err) {
       console.error("Failed to load status", err);
     } finally {
@@ -113,6 +216,10 @@ export default function FarmPage() {
       if (initialLoadRef.current) {
         initialLoadRef.current = false;
         setIsBootstrapping(false);
+        const hasSeenIntro = localStorage.getItem("chronofarm_intro_seen");
+        if (isNew || !hasSeenIntro) {
+          setShowIntro(true);
+        }
       }
     }
   };
@@ -190,6 +297,54 @@ export default function FarmPage() {
 
     setWalletAddress(wallet);
   }, [router]);
+
+  useEffect(() => {
+    if (isBootstrapping) return;
+    const isNewAccount = totalXp === 0 && crops.length === 0 && inventory.length === 0 && level === 1;
+    const hasSeenIntro = localStorage.getItem("chronofarm_intro_seen");
+    const hasSeenTutorial = localStorage.getItem("chronofarm_tutorial_seen");
+    
+    // Only trigger if we haven't started yet and the intro is finished
+    if (tutorialStep === 0 && !showIntro) {
+      // Trigger if they are a brand new account OR they haven't seen it yet
+      if (isNewAccount || (!hasSeenTutorial && hasSeenIntro)) {
+        setTutorialStep(1);
+      }
+    }
+  }, [isBootstrapping, showIntro, totalXp, crops.length, inventory.length, level, tutorialStep]);
+
+  useEffect(() => {
+    if (tutorialStep === 4) {
+      const crop = crops.find(c => c.tileIndex === 0);
+      if (crop) setTutorialStep(5);
+    } else if (tutorialStep === 5) {
+      const crop = crops.find(c => c.tileIndex === 0);
+      if (crop && new Date(crop.readyAt) <= new Date()) {
+        setTutorialStep(6);
+      }
+    } else if (tutorialStep === 6) {
+      const crop = crops.find(c => c.tileIndex === 0);
+      if (!crop && inventory.some(i => i.quantity > 0)) {
+        setTutorialStep(7);
+      }
+    }
+  }, [tutorialStep, crops, tick, inventory]);
+
+  useEffect(() => {
+    if (isBootstrapping) return;
+    if (level === 2) {
+      const hasSeenLvl2 = localStorage.getItem("chronofarm_tutorial_lvl2_seen");
+      if (!hasSeenLvl2 && tutorialStep === 0 && !showIntro) {
+        setTutorialStep(10);
+      }
+    }
+  }, [isBootstrapping, level, tutorialStep, showIntro]);
+
+  useEffect(() => {
+    if (tutorialStep === 10 && year === 1910) {
+      advanceTime();
+    }
+  }, [tutorialStep, year]);
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -332,20 +487,35 @@ export default function FarmPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tileIndex: index }),
         });
-        const data = await res.json();
-        if (!res.ok) {
+        
+        if (res.ok) {
+          const data = await res.json();
+          const match = data.message?.match(/Harvested (\d+)/);
+          const yieldAmount = match ? parseInt(match[1], 10) : 1;
+
+          setInventory(prev => {
+            const copy = [...prev];
+            const idx = copy.findIndex(i => i.cropType === crop.type);
+            if (idx >= 0) copy[idx].quantity += yieldAmount;
+            else copy.push({ id: `temp-${Date.now()}`, cropType: crop.type, quantity: yieldAmount });
+            return copy;
+          });
+
+          // Optimistic RPG XP bump
+          setTotalXp(prev => {
+            const nextTotal = prev + 10;
+            const progress = calculateLevelProgress(nextTotal);
+            setLevel(progress.level);
+            return nextTotal;
+          });
+          setMessage(data.message || `Harvested ${CROPS[crop.type]?.name || crop.type}!`);
+        } else {
+          const data = await res.json();
           setMessage(data.message || data.error || "Harvest failed");
           void loadStatus({ force: true });
-        } else {
-          setMessage(data.message || `Harvested ${cropCfg?.name}!`);
-          setXp(prev => {
-            const nextXp = prev + 5;
-            setLevel(Math.floor(nextXp / 100) + 1);
-            return nextXp;
-          });
-          // Sync real state in background
-          void loadStatus();
         }
+        // Sync real state in background
+        void loadStatus();
       }
     } catch {
       setMessage("Action failed");
@@ -529,14 +699,57 @@ export default function FarmPage() {
     <div className="h-screen flex flex-col bg-[var(--background)] text-[var(--foreground)] overflow-hidden" style={{fontFamily:"'Share Tech Mono','Courier New','Apple Color Emoji','Segoe UI Emoji',monospace",fontSize:"13px"}}>
 
       {/* LOADING */}
-      {isBootstrapping && (
+      {isBootstrapping && !showIntro && (
         <div className="fixed inset-0 z-50 bg-[rgba(var(--background-rgb),0.88)] flex items-center justify-center">
           <div className="border border-zinc-600 px-8 py-4 text-green-400 text-sm font-bold tracking-widest">[ LOADING CHRONOFARM... ]</div>
         </div>
       )}
 
-      {/* --- TOP BAR --- */}
-      <header className="flex items-center gap-4 px-4 py-2 border-b border-zinc-700 shrink-0 bg-[var(--panel-bg)]">
+      {/* INTRO SEQUENCE */}
+      {showIntro && (
+        <IntroSequence onComplete={() => {
+          localStorage.setItem("chronofarm_intro_seen", "true");
+          setShowIntro(false);
+        }} />
+      )}
+
+      {/* TUTORIAL OVERLAY */}
+      {tutorialStep > 0 && (
+        <div className="fixed inset-0 z-40 bg-black/80 flex items-end justify-center pb-24 transition-opacity pointer-events-none">
+          <div className="bg-[#0a0f0a] border border-emerald-500/50 p-6 rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] max-w-lg w-full text-center flex flex-col gap-5 pointer-events-auto">
+            <div className="text-emerald-400 font-bold tracking-[0.2em] uppercase text-xs flex items-center justify-center gap-2">
+              <Star className="w-4 h-4" /> NEWBIE GUIDE
+            </div>
+            <div className="text-zinc-200 text-sm leading-relaxed tracking-wide min-h-[3rem]">
+              {tutorialStep === 1 && "Welcome to your Main Farm. This is where you will plant, grow, and harvest crops to build your empire."}
+              {tutorialStep === 2 && "First, we need something to plant. Click the SEEDS button to open your inventory."}
+              {tutorialStep === 3 && "Great! Now select WHEAT from your available seeds."}
+              {tutorialStep === 4 && "Click the first empty plot on the grid to plant your Wheat."}
+              {tutorialStep === 5 && "Wheat grows quickly. Keep an eye on the timer... Time is money!"}
+              {tutorialStep === 6 && "It's ready! Click the fully grown Wheat to harvest it."}
+              {tutorialStep === 7 && "Nice harvest! Your crops are automatically stored in your Warehouse on the right. You can sell them at the Market or use them to craft upgrades later."}
+              {tutorialStep === 8 && "Notice the Timeline at the bottom. As you level up, you can Advance Time to reach new eras and trigger global events."}
+              {tutorialStep === 9 && "Check your Level and EXP in the top bar. Keep farming to level up! Remember: Some features remain locked until you prove yourself."}
+              {tutorialStep === 10 && "You reached Level 2! The Timeline has advanced to 1912. Historical events change global demand and prices. Check the Event Panel!"}
+              {tutorialStep === 11 && "The MARKETPLACE is now unlocked! It's time to sell your harvest for profit. Click the MARKET button below to enter the trading hub."}
+            </div>
+            {(tutorialStep === 1 || tutorialStep === 7 || tutorialStep === 8 || tutorialStep === 9 || tutorialStep === 10) && (
+              <button className="btn-game btn-game-green self-center text-xs px-8 py-2" onClick={() => {
+                if (tutorialStep === 9) {
+                   setTutorialStep(0);
+                   localStorage.setItem("chronofarm_tutorial_seen", "true");
+                } else if (tutorialStep === 10) {
+                   setTutorialStep(11);
+                } else {
+                   setTutorialStep(tutorialStep + 1);
+                }
+              }}>{tutorialStep === 9 ? "START FARMING" : "NEXT"}</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <header className={`flex items-center gap-4 px-4 py-2 border-b border-zinc-700 shrink-0 bg-[var(--panel-bg)] ${tutorialStep === 9 ? "z-50 relative pointer-events-auto ring-2 ring-emerald-400" : "z-10"}`}>
         <span className="font-black text-white tracking-widest text-base mr-4">CHRONOFARM</span>
         <div className="flex-1 flex items-center justify-center gap-6 text-xs text-zinc-400">
           <span>LEVEL <span className="text-white font-bold">{level}</span></span>
@@ -561,8 +774,28 @@ export default function FarmPage() {
           <div className="px-3 py-2 border-b border-zinc-700 text-[11px] text-zinc-500 uppercase tracking-widest" style={{fontFamily:"'Press Start 2P',monospace",fontSize:"9px",letterSpacing:"0.05em"}}>SIDEBAR</div>
           <nav className="flex-1 overflow-y-auto">
             {NAV.map(n => {
-              const cls = `flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-all ${n.active ? "text-green-400 border-l-2 border-green-500 bg-green-950/10" : "text-zinc-400 border-l-2 border-transparent hover:text-zinc-200 hover:bg-[rgba(var(--card-bg-rgb),0.7)]"}`;
-              const inner = <><span>{n.icon}</span><span>{n.label}</span></>;
+              const isLocked = (() => {
+                if (n.label === "The Farm") return false;
+                if (n.label === "Marketplace") return level < 2;
+                return level < 3;
+              })();
+              const cls = `flex items-center gap-2 px-3 py-2 text-sm transition-all ${
+                isLocked
+                  ? "text-zinc-600 border-l-2 border-transparent bg-zinc-950/20 cursor-not-allowed"
+                  : n.active 
+                    ? "text-green-400 border-l-2 border-green-500 bg-green-950/10 cursor-pointer" 
+                    : "text-zinc-400 border-l-2 border-transparent hover:text-zinc-200 hover:bg-[rgba(var(--card-bg-rgb),0.7)] cursor-pointer"
+              }`;
+              const inner = (
+                <>
+                  <span>{n.icon}</span>
+                  <span className="flex-1">{n.label}</span>
+                  {isLocked && <Lock className="w-3 h-3 text-red-900" />}
+                </>
+              );
+              
+              if (isLocked) return <div key={n.label} className={cls}>{inner}</div>;
+              
               if (n.href && !n.active) return <Link key={n.label} href={n.href}><div className={cls}>{inner}</div></Link>;
               return <div key={n.label} className={cls} onClick={n.label === "World Map" ? () => setShowMap(!showMap) : undefined}>{inner}</div>;
             })}
@@ -572,10 +805,18 @@ export default function FarmPage() {
               <div className="w-9 h-9 border border-zinc-600 flex items-center justify-center bg-[var(--card-bg)]">👨‍🌾</div>
               <div><div className="text-[10px] text-zinc-500">Farmer</div><div className="text-[11px] font-bold">ChronoMaster</div></div>
             </div>
-            <div className="grid grid-cols-2 gap-1 text-[9px] text-center">
-              <div className="border border-zinc-800 py-0.5"><div className="text-zinc-500">XP</div><div className="text-zinc-300">{xp}</div></div>
-              <div className="border border-zinc-800 py-0.5"><div className="text-zinc-500">LVL</div><div className="text-zinc-300">{level}</div></div>
+            
+            {/* RPG XP Bar Sidebar */}
+            <div className="mb-2">
+              <div className="flex justify-between text-[9px] mb-1">
+                <span className="text-zinc-500 font-bold">LVL {calculateLevelProgress(totalXp).level}</span>
+                <span className="text-zinc-400 font-mono">{calculateLevelProgress(totalXp).currentXp} / {calculateLevelProgress(totalXp).nextLevelXp}</span>
+              </div>
+              <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${(calculateLevelProgress(totalXp).currentXp / calculateLevelProgress(totalXp).nextLevelXp) * 100}%` }} />
+              </div>
             </div>
+
             <button onClick={resetGame} className="btn-game btn-game-dark mt-2 w-full" style={{padding:"6px 8px",fontSize:"9px",color:"#71717a"}}>☢ RESET</button>
           </div>
         </aside>
@@ -587,7 +828,7 @@ export default function FarmPage() {
             {message && <span className={`text-[10px] truncate max-w-xs ${message.toLowerCase().includes("fail") ? "text-red-400" : "text-blue-400"}`}>{message}</span>}
             <div className="flex items-center gap-2 text-[10px]">
               {event && <span className="text-yellow-500">⚡ {event.name}</span>}
-              <span className="border border-zinc-700 px-2 py-0.5 text-green-500">XP {xp}</span>
+              <span className="border border-zinc-700 px-2 py-0.5 text-green-500">XP {totalXp}</span>
             </div>
           </div>
 
@@ -811,10 +1052,13 @@ export default function FarmPage() {
               {/* Farm grid */}
               <div className="flex-1 flex items-center justify-center p-4 overflow-hidden relative bg-[var(--background)] bg-[url('/farm-bg.png')] bg-cover bg-center">
                 <div className="absolute inset-0 bg-[rgba(var(--background-rgb),0.45)] pointer-events-none" />
-                <div className="absolute left-4 top-4 z-20 flex flex-col items-start gap-2">
+                <div className={`absolute left-4 top-4 flex flex-col items-start gap-2 ${tutorialStep === 2 ? "z-50 relative pointer-events-auto" : "z-20"}`}>
                   <button
-                    onClick={() => setShowSeedPortal(prev => !prev)}
-                    className="btn-game btn-game-green"
+                    onClick={() => {
+                      setShowSeedPortal(prev => !prev);
+                      if (tutorialStep === 2) setTutorialStep(3);
+                    }}
+                    className={`btn-game btn-game-green ${tutorialStep === 2 ? "ring-2 ring-emerald-400 ring-offset-2 ring-offset-black animate-pulse" : ""}`}
                     style={{fontSize:"10px",padding:"6px 10px"}}
                   >
                     SEEDS
@@ -824,19 +1068,26 @@ export default function FarmPage() {
                   </div>
                 </div>
                 {showSeedPortal && (
-                  <div className="absolute left-4 top-16 z-20 w-56 h-56 bg-[rgba(var(--panel-bg-rgb),0.95)] border border-emerald-700/40 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.2)] p-2 flex flex-col">
+                  <div className={`absolute left-4 top-16 w-56 h-56 bg-[rgba(var(--panel-bg-rgb),0.95)] border border-emerald-700/40 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.2)] p-2 flex flex-col ${tutorialStep === 3 ? "z-50 relative pointer-events-auto" : "z-20"}`}>
                     <div className="text-[9px] text-emerald-300 uppercase tracking-widest mb-2">Seeds</div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
                       <div className="grid grid-cols-2 gap-2">
                         {Object.keys(CROPS).filter(k => !CROPS[k].itemType || CROPS[k].itemType === "crop").map(k => {
                           const cfg = CROPS[k] as any;
                           const dis = (cfg.regions && currentRegion && !cfg.regions.includes(currentRegion.name)) || (cfg.unlockLevel && level < cfg.unlockLevel);
+                          const isTutTarget = tutorialStep === 3 && k === "WHEAT";
                           return (
                             <button
                               key={k}
-                              onClick={() => !dis && setSelectedCrop(k)}
-                              disabled={!!dis}
-                              className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-[10px] transition-all ${selectedCrop === k ? "border-emerald-500 text-emerald-200 bg-emerald-950/40" : dis ? "border-zinc-800 text-zinc-600 bg-zinc-950/50 cursor-not-allowed opacity-60" : "border-zinc-700 text-zinc-300 bg-zinc-900/50 hover:border-zinc-500 hover:bg-zinc-800/60"}`}
+                              onClick={() => {
+                                if (!dis) setSelectedCrop(k);
+                                if (isTutTarget) {
+                                  setShowSeedPortal(false);
+                                  setTutorialStep(4);
+                                }
+                              }}
+                              disabled={!!dis || (tutorialStep === 3 && !isTutTarget)}
+                              className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-[10px] transition-all ${isTutTarget ? "ring-2 ring-emerald-400 animate-pulse border-emerald-500" : ""} ${selectedCrop === k ? "border-emerald-500 text-emerald-200 bg-emerald-950/40" : dis ? "border-zinc-800 text-zinc-600 bg-zinc-950/50 cursor-not-allowed opacity-60" : "border-zinc-700 text-zinc-300 bg-zinc-900/50 hover:border-zinc-500 hover:bg-zinc-800/60"}`}
                             >
                               <span className="truncate">{cfg.emoji} {cfg.name}</span>
                               {selectedCrop === k && <span className="text-[9px] text-emerald-300">ACTIVE</span>}
@@ -852,15 +1103,16 @@ export default function FarmPage() {
                     <span className="border border-zinc-600 px-4 py-2 text-xs text-green-400">[ PROCESSING... ]</span>
                   </div>
                 )}
-                <div className="w-full max-w-2xl relative z-10">
+                <div className={`w-full max-w-2xl relative ${tutorialStep === 1 ? "z-50 pointer-events-auto" : "z-10"}`}>
                   <div className="text-[9px] text-zinc-600 text-center uppercase tracking-widest mb-4">FARM VIEW</div>
-                  <div className="p-4 md:p-5 mb-4 rounded-lg bg-[radial-gradient(circle_at_20%_20%,#5f8d2f_0%,#416625_45%,#2b4a17_100%)] ring-4 ring-[#2f4c13] shadow-[inset_0_0_30px_rgba(0,0,0,0.6)]">
+                  <div className={`p-4 md:p-5 mb-4 rounded-lg bg-[radial-gradient(circle_at_20%_20%,#5f8d2f_0%,#416625_45%,#2b4a17_100%)] ring-4 ring-[#2f4c13] shadow-[inset_0_0_30px_rgba(0,0,0,0.6)] ${tutorialStep === 1 ? "ring-offset-2 ring-offset-black ring-emerald-500" : ""}`}>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       {Array.from({length: 9}).map((_, idx) => {
                         const tile = tiles.find(t => t.index === idx);
                         const crop = crops.find(c => c.tileIndex === idx);
                         const timer = crop ? fmtTimer(crop) : null;
-                        const tileFrame = "aspect-[5/4] cursor-pointer group transition-all";
+                        const isTutTarget = (tutorialStep === 4 || tutorialStep === 5 || tutorialStep === 6) && idx === 0;
+                        const tileFrame = `aspect-[5/4] cursor-pointer group transition-all ${isTutTarget ? "z-50 relative pointer-events-auto ring-4 ring-emerald-400 ring-offset-2 ring-offset-black rounded-md animate-pulse" : (tutorialStep > 1 && tutorialStep < 7) ? "pointer-events-none opacity-40" : ""}`;
                         const woodFrame = "rounded-md p-1 bg-[#5a3b22] shadow-[0_3px_10px_rgba(0,0,0,0.6),inset_0_0_12px_rgba(0,0,0,0.6)]";
                         const soilBase = "w-full h-full rounded-md bg-[radial-gradient(circle_at_30%_30%,#3b2a1a_0%,#2a1c12_70%)] border border-[#24160c] flex flex-col items-center justify-between p-2 relative overflow-hidden";
 
@@ -944,7 +1196,7 @@ export default function FarmPage() {
 
   {/* Global Event */}
   {event && (
-    <div className="border-b border-zinc-700 p-3 shrink-0">
+    <div className={`border-b border-zinc-700 p-3 shrink-0 ${tutorialStep === 10 ? "z-50 relative pointer-events-auto ring-2 ring-emerald-400" : ""}`}>
       <div className="text-[10px] text-yellow-500 uppercase tracking-widest mb-1.5">
         GLOBAL EVENT
       </div>
@@ -1051,7 +1303,7 @@ export default function FarmPage() {
   )}
 
   {/* Warehouse */}
-  <div className="border-b border-zinc-700 p-3 shrink-0">
+  <div className={`border-b border-zinc-700 p-3 shrink-0 ${tutorialStep === 7 ? "z-50 relative pointer-events-auto ring-2 ring-emerald-400" : ""}`}>
     <div className="flex items-center justify-between mb-2">
       <div className="text-[10px] text-zinc-500 uppercase tracking-widest">
         WAREHOUSE
@@ -1090,42 +1342,46 @@ export default function FarmPage() {
 
   {/* Quick Actions */}
   <div className="p-3 shrink-0">
-    <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2">
+    <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-2 flex items-center justify-between">
       QUICK ACTIONS
+      {level === 1 && <Lock className="w-3 h-3 text-red-900" />}
     </div>
 
     <div className="grid grid-cols-2 gap-1.5">
-      <Link
-        href="/crafting"
-        className="btn-game btn-game-dark w-full"
-        style={{fontSize:"10px",padding:"8px 6px"}}
-      >
-        ⚙️ Crafting
-      </Link>
+      {level < 3 ? (
+        <button disabled className="btn-game btn-game-dark w-full opacity-50 cursor-not-allowed" style={{fontSize:"10px",padding:"8px 6px"}}>⚙️ Crafting</button>
+      ) : (
+        <Link href="/crafting" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>⚙️ Crafting</Link>
+      )}
 
-      <Link
-        href="/marketplace"
-        className="btn-game btn-game-dark w-full"
-        style={{fontSize:"10px",padding:"8px 6px"}}
-      >
-        🏪 Market
-      </Link>
+      {level < 2 ? (
+        <button disabled className="btn-game btn-game-dark w-full opacity-50 cursor-not-allowed" style={{fontSize:"10px",padding:"8px 6px"}}>🏪 Market</button>
+      ) : (
+        <Link
+          href="/marketplace"
+          className={`btn-game btn-game-dark w-full ${tutorialStep === 11 ? "z-50 relative pointer-events-auto ring-4 ring-emerald-400 ring-offset-2 ring-offset-black animate-pulse" : ""}`}
+          style={{fontSize:"10px",padding:"8px 6px"}}
+          onClick={() => {
+             if (tutorialStep === 11) {
+                localStorage.setItem("chronofarm_tutorial_lvl2_seen", "true");
+             }
+          }}
+        >
+          🏪 Market
+        </Link>
+      )}
 
-      <button
-        onClick={() => setShowMap(true)}
-        className="btn-game btn-game-dark w-full"
-        style={{fontSize:"10px",padding:"8px 6px"}}
-      >
-        🗺️ World Map
-      </button>
+      {level < 3 ? (
+        <button disabled className="btn-game btn-game-dark w-full opacity-50 cursor-not-allowed" style={{fontSize:"10px",padding:"8px 6px"}}>🗺️ World Map</button>
+      ) : (
+        <button onClick={() => setShowMap(true)} className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>🗺️ World Map</button>
+      )}
 
-      <Link
-        href="/section"
-        className="btn-game btn-game-dark w-full"
-        style={{fontSize:"10px",padding:"8px 6px"}}
-      >
-        💬 Chat
-      </Link>
+      {level < 3 ? (
+        <button disabled className="btn-game btn-game-dark w-full opacity-50 cursor-not-allowed" style={{fontSize:"10px",padding:"8px 6px"}}>💬 Chat</button>
+      ) : (
+        <Link href="/section" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>💬 Chat</Link>
+      )}
     </div>
   </div>
 
@@ -1169,7 +1425,7 @@ export default function FarmPage() {
         </div>
 
         {/* Time Travel */}
-        <div className="flex-1 border-r border-zinc-700 flex flex-col">
+        <div className={`flex-1 border-r border-zinc-700 flex flex-col ${tutorialStep === 8 ? "z-50 relative pointer-events-auto ring-2 ring-emerald-400" : ""}`}>
           <div
             className="px-3 py-1.5 border-b border-zinc-800 text-[9px] text-zinc-500 uppercase tracking-widest shrink-0"
             style={{ fontFamily: "'Press Start 2P',monospace", fontSize: "7px" }}
@@ -1195,17 +1451,17 @@ export default function FarmPage() {
                 </div>
               )}
 
-              <div className="w-32 h-1.5 bg-[rgba(var(--card-bg-rgb),0.7)] overflow-hidden">
+              <div className="w-32 h-1.5 bg-[rgba(var(--card-bg-rgb),0.7)] overflow-hidden border border-zinc-800">
                 <div
-                  className="h-full bg-indigo-500 transition-all"
+                  className="h-full bg-indigo-500 transition-all duration-500"
                   style={{
-                    width: `${Math.min(100, (xp % 15) / 15 * 100)}%`,
+                    width: `${(calculateLevelProgress(totalXp).currentXp / calculateLevelProgress(totalXp).nextLevelXp) * 100}%`,
                   }}
                 />
               </div>
 
               <div className="text-[8px] text-zinc-600 mt-0.5">
-                {xp % 15}/15 era XP
+                {calculateLevelProgress(totalXp).currentXp}/{calculateLevelProgress(totalXp).nextLevelXp} XP to Next Era
               </div>
             </div>
 
