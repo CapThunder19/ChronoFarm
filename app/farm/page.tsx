@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDisconnect } from "wagmi";
 import { clearWalletSession, getStoredWalletAddress } from "@/lib/wallet-session";
-import { Globe, X, Send, Activity } from "lucide-react";
+import { Globe, X, Send, Activity, ChevronLeft, Hexagon, MapPin, Star, Settings, TrendingUp, Diamond, Clock, CircleDollarSign, Compass, Lock, Plane } from "lucide-react";
 
 type ChatMessage = {
   id: string;
@@ -592,30 +592,218 @@ export default function FarmPage() {
           </div>
 
           {showMap ? (
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-              <div className="flex items-center gap-3 mb-4">
-                <button onClick={() => setShowMap(false)} className="btn-game btn-game-dark">← BACK</button>
-                <span className="text-sm font-bold">WORLD MAP</span>
+            <div className="flex-1 overflow-y-auto bg-[#0a0f0a] p-8 custom-scrollbar relative flex flex-col z-50">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-6">
+                  <button onClick={() => setShowMap(false)} className="text-[#cda66d] border border-[#cda66d]/30 hover:bg-[#cda66d]/10 px-4 py-2 rounded flex items-center gap-2 text-xs font-bold tracking-widest transition-colors">
+                    <ChevronLeft className="w-4 h-4" /> BACK
+                  </button>
+                  <h1 className="text-2xl font-serif text-zinc-100 tracking-wider">WORLD MAP</h1>
+                </div>
+                
+                {/* Stats */}
+                <div className="flex bg-[#111a13] border border-zinc-800 rounded-lg p-1">
+                  <div className="px-4 py-1 text-center border-r border-zinc-800">
+                    <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Level</div>
+                    <div className="text-emerald-500 font-bold text-sm">
+                      <Hexagon className="w-4 h-4 inline-block mr-1"/>{level}
+                    </div>
+                  </div>
+                  <div className="px-4 py-1 text-center border-r border-zinc-800">
+                    <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Credits</div>
+                    <div className="text-[#cda66d] font-bold text-sm">${money}</div>
+                  </div>
+                  <div className="px-4 py-1 text-center">
+                    <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">Status</div>
+                    <div className="text-emerald-500 font-bold text-sm">IDLE</div>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+
+              {/* Sub-header */}
+              <div className="flex items-start justify-between mb-8">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full border border-zinc-700 bg-zinc-900 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(205,166,109,0.15)]">
+                    <Globe className="w-6 h-6 text-[#cda66d]" />
+                  </div>
+                  <div>
+                    <h2 className="text-[#cda66d] font-serif text-lg tracking-wide mb-1">EXPLORE THE WORLD</h2>
+                    <p className="text-xs text-zinc-400 max-w-md leading-relaxed">Discover new markets, rare resources, and unique opportunities across different regions.</p>
+                  </div>
+                </div>
+
+                <div className="bg-[#111a13] border border-zinc-800 rounded-lg px-4 py-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-900/30 flex items-center justify-center border border-emerald-700/50">
+                    <MapPin className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <div className="text-[9px] text-emerald-500 uppercase tracking-widest font-bold mb-0.5">ACTIVE LOCATION</div>
+                    <div className="text-zinc-200 text-sm font-serif tracking-wider">{currentRegion?.name || "Unknown"}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cards Grid */}
+              <div className="grid grid-cols-3 gap-6 mb-8 flex-1">
                 {regions.map(r => {
                   const maxLv = farmsState.length ? Math.max(...farmsState.map(f => f.level ?? 1)) : level;
                   const locked = r.unlockLevel && maxLv < r.unlockLevel;
                   const isCurrent = r.id === currentRegion?.id;
+                  
+                  // Styling based on continent
+                  let theme = "zinc";
+                  let themeHex = "#71717a";
+                  let btnColor = "";
+                  let ribbonColor = "";
+                  let bgUrl = "";
+                  let diff = "Easy";
+                  let diffColor = "text-emerald-500";
+                  let bgImg = "";
+                  
+                  if (r.name.includes("Europe")) {
+                    theme = "emerald";
+                    themeHex = "#10b981";
+                    btnColor = "bg-gradient-to-b from-[#113a21] to-[#0a2012] hover:from-[#154d2c] hover:to-[#113a21] border-[#10b981]/30 text-emerald-100";
+                    ribbonColor = "bg-[#1f7b4e]";
+                    diff = "Easy";
+                    diffColor = "text-emerald-500";
+                    bgUrl = "radial-gradient(circle at center, #1b3021 0%, #0a0f0a 100%)";
+                    bgImg = "url('/map-europe.jpg')"; // Placeholder
+                  } else if (r.name.includes("America")) {
+                    theme = "blue";
+                    themeHex = "#3b82f6";
+                    btnColor = "bg-gradient-to-b from-[#1e3a5f] to-[#0f1f33] hover:from-[#2a4d7a] hover:to-[#1e3a5f] border-blue-500/30 text-blue-100";
+                    ribbonColor = "bg-[#3b82f6]";
+                    diff = "Easy";
+                    diffColor = "text-emerald-500";
+                    bgUrl = "radial-gradient(circle at center, #14243b 0%, #0a0f0a 100%)";
+                    bgImg = "url('/map-americas.jpg')"; // Placeholder
+                  } else {
+                    theme = "purple";
+                    themeHex = "#a855f7";
+                    btnColor = "bg-gradient-to-b from-[#3a1d52] to-[#20102e] hover:from-[#4d286d] hover:to-[#3a1d52] border-purple-500/30 text-purple-100";
+                    ribbonColor = "bg-[#7e22ce]";
+                    diff = "Medium";
+                    diffColor = "text-[#cda66d]";
+                    bgUrl = "radial-gradient(circle at center, #2e1a3b 0%, #0a0f0a 100%)";
+                    bgImg = "url('/map-asia.jpg')"; // Placeholder
+                  }
+
                   return (
-                    <div key={r.id} className={`border p-4 transition-all ${isCurrent ? "border-blue-500 bg-blue-950/10" : locked ? "border-zinc-800 opacity-40" : "border-zinc-700 hover:border-zinc-500 cursor-pointer"}`}>
-                      <div className="text-[9px] text-blue-400 uppercase tracking-widest mb-1">{r.continent}</div>
-                      <div className="font-bold text-sm mb-1">{r.name}</div>
-                      <div className="text-[9px] text-zinc-500 mb-3 line-clamp-2">{r.description}</div>
-                      {isCurrent
-                        ? <div className="text-[9px] text-blue-400 border border-blue-700 px-2 py-1 text-center">[ CURRENT LOCATION ]</div>
-                        : locked
-                        ? <div className="text-[9px] text-zinc-600 border border-zinc-800 px-2 py-1 text-center">🔒 LOCKED — L{r.unlockLevel}</div>
-                        : <button onClick={() => travelTo(r.id)} className="btn-game btn-game-blue w-full" style={{fontSize:"9px",padding:"6px"}}>✈ TRAVEL HERE</button>
-                      }
+                    <div key={r.id} className={`relative flex flex-col rounded-xl border transition-all ${isCurrent ? "border-[var(--highlight)] shadow-[0_0_15px_rgba(205,166,109,0.15)]" : "border-zinc-800 bg-[#111a13]"} overflow-hidden`} style={isCurrent ? {borderColor: themeHex, boxShadow: `0 0 20px ${themeHex}33`} : {}}>
+                      
+                      {/* Ribbon */}
+                      <div className="absolute top-0 right-4 w-8 h-12 flex items-start justify-center pt-2 z-20">
+                        <div className={`absolute inset-0 ${ribbonColor} shadow-lg`} style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%)" }}></div>
+                        <Star className="w-4 h-4 text-white fill-white relative z-30" />
+                      </div>
+
+                      {/* Header Area */}
+                      <div className="p-6 relative h-48 flex flex-col justify-between" style={{ background: bgImg !== "url('')" ? bgImg : bgUrl, backgroundSize: "cover", backgroundPosition: "center" }}>
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-[#111a13] z-0" />
+                        
+                        <div className="relative z-10 pt-2">
+                          <div className={`text-[9px] font-bold tracking-widest uppercase mb-1 text-${theme}-400`} style={{ color: themeHex }}>{r.continent || r.name.split(" ")[0]}</div>
+                          <h3 className="text-3xl font-serif text-white mb-2 tracking-wide">{r.name}</h3>
+                          <p className="text-xs text-zinc-300 leading-relaxed max-w-[85%] min-h-[40px] drop-shadow-md">{r.description}</p>
+                        </div>
+                        
+                        <div className="relative z-10 flex items-end">
+                          {isCurrent && (
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0a2012]/80 border border-[#10b981]/40 text-[9px] text-emerald-400 font-bold tracking-widest uppercase backdrop-blur-sm">
+                              <MapPin className="w-3.5 h-3.5" /> YOUR CURRENT LOCATION
+                            </div>
+                          )}
+                          {!isCurrent && locked && (
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/80 border border-zinc-700/50 text-[9px] text-zinc-400 font-bold tracking-widest uppercase backdrop-blur-sm">
+                              <Lock className="w-3.5 h-3.5" /> LOCKED — LEVEL {r.unlockLevel}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Content Area */}
+                      <div className="flex-1 p-6 bg-[#111a13] flex flex-col z-10 relative">
+                        {/* Glow overlap effect */}
+                        <div className="absolute top-0 left-0 w-full h-1" style={{background: `linear-gradient(90deg, transparent, ${themeHex}44, transparent)`}} />
+                        
+                        <div className={`text-[9px] font-bold tracking-widest uppercase text-${theme}-500 mb-4`} style={{ color: themeHex }}>REGION HIGHLIGHTS</div>
+                        
+                        <div className="grid grid-cols-3 gap-3 mb-6 flex-1">
+                          <div className="flex flex-col gap-2">
+                            <div className="w-8 h-8 rounded-full bg-zinc-900/80 border border-zinc-800 flex items-center justify-center shadow-inner">
+                              <Settings className={`w-4 h-4 text-${theme}-400`} style={{ color: themeHex }} />
+                            </div>
+                            <div className="text-[9px] text-zinc-300 font-bold leading-tight">Advanced Machinery</div>
+                            <div className="text-[8px] text-zinc-500 leading-tight pr-2">High demand for industrial equipment</div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <div className="w-8 h-8 rounded-full bg-zinc-900/80 border border-zinc-800 flex items-center justify-center shadow-inner">
+                              <TrendingUp className={`w-4 h-4 text-${theme}-400`} style={{ color: themeHex }} />
+                            </div>
+                            <div className="text-[9px] text-zinc-300 font-bold leading-tight">Stable Economy</div>
+                            <div className="text-[8px] text-zinc-500 leading-tight pr-2">Balanced market conditions</div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <div className="w-8 h-8 rounded-full bg-zinc-900/80 border border-zinc-800 flex items-center justify-center shadow-inner">
+                              <Diamond className={`w-4 h-4 text-${theme}-400`} style={{ color: themeHex }} />
+                            </div>
+                            <div className="text-[9px] text-zinc-300 font-bold leading-tight">Rich Resources</div>
+                            <div className="text-[8px] text-zinc-500 leading-tight pr-2">Abundant in iron and coal</div>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-zinc-800/80 pt-4 flex flex-col gap-4">
+                          <div className="flex items-end justify-between px-2">
+                            <div>
+                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1.5">TRAVEL TIME</div>
+                              <div className="text-xs text-zinc-300 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-[#cda66d]"/> 12h 30m</div>
+                            </div>
+                            <div>
+                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1.5">TRAVEL COST</div>
+                              <div className="text-xs text-zinc-300 flex items-center gap-1.5"><CircleDollarSign className="w-3.5 h-3.5 text-[#cda66d]"/> $150</div>
+                            </div>
+                            <div>
+                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1.5 text-right">DIFFICULTY</div>
+                              <div className={`text-xs font-bold ${diffColor} text-right`}>{diff}</div>
+                            </div>
+                          </div>
+
+                          {isCurrent ? (
+                            <button className="w-full py-3.5 rounded-lg bg-gradient-to-b from-[#113a21] to-[#0a2012] border border-[#10b981]/30 text-emerald-500 text-[10px] font-bold tracking-[0.2em] uppercase flex items-center justify-center gap-2 shadow-[inset_0_0_15px_rgba(16,185,129,0.1)] pointer-events-none">
+                              <MapPin className="w-4 h-4" /> CURRENT LOCATION
+                            </button>
+                          ) : locked ? (
+                            <button disabled className="w-full py-3.5 rounded-lg bg-[#0a0f0a] border border-zinc-800 text-zinc-600 text-[10px] font-bold tracking-[0.2em] uppercase flex items-center justify-center gap-2 opacity-70">
+                              <Lock className="w-4 h-4" /> INSUFFICIENT CLEARANCE
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => travelTo(r.id)} 
+                              className={`w-full py-3.5 rounded-lg ${btnColor} border text-[10px] font-bold tracking-[0.2em] uppercase flex items-center justify-center gap-2 transition-all shadow-[inset_0_1px_rgba(255,255,255,0.1)]`}
+                            >
+                              <Plane className="w-4 h-4" /> TRAVEL HERE
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Footer Tip */}
+              <div className="w-full bg-gradient-to-r from-[#111a13] to-[#080d09] border border-zinc-800 rounded-xl p-5 flex items-center gap-6 relative overflow-hidden shrink-0 shadow-lg">
+                <div className="absolute inset-y-0 right-0 w-1/3 bg-[url('/ship-silhouette.png')] bg-contain bg-no-repeat bg-right opacity-10 pointer-events-none" />
+                
+                <div className="w-12 h-12 rounded-full border border-zinc-700 bg-[#050805] flex items-center justify-center shrink-0 z-10 shadow-inner">
+                  <Compass className="w-6 h-6 text-[#cda66d]" />
+                </div>
+                <div className="z-10">
+                  <div className="text-[#cda66d] text-[10px] font-bold tracking-[0.2em] uppercase mb-1">TRAVEL TIP</div>
+                  <div className="text-zinc-400 text-xs tracking-wide">Different regions offer unique resources and market opportunities. Choose your destination wisely!</div>
+                </div>
               </div>
             </div>
           ) : (
