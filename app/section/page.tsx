@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { waitForTransactionReceipt } from "@wagmi/core";
@@ -65,6 +66,8 @@ export default function SectionPage() {
   const [year, setYear] = useState(1910);
   const [money, setMoney] = useState(0);
   const [level, setLevel] = useState(1);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [activeFarmId, setActiveFarmId] = useState<string | null>(null);
   const [chatDraft, setChatDraft] = useState("");
   const [showListModal, setShowListModal] = useState(false);
   const [offerForm, setOfferForm] = useState({
@@ -117,6 +120,8 @@ export default function SectionPage() {
         setLevel(statusData.level ?? 1);
         setInventory(statusData.inventory ?? []);
         setPrices(statusData.prices ?? []);
+        const currentFarm = (statusData.farms || []).find((farm: any) => farm.regionId === statusData.currentRegion?.id) ?? (statusData.farms || [])[0] ?? null;
+        setActiveFarmId(currentFarm?.id ?? null);
       }
 
       if (offersRes.ok) {
@@ -127,6 +132,28 @@ export default function SectionPage() {
       setStatus("Failed to load Section board.");
     }
   }, [walletFetch]);
+
+  const searchParams = useSearchParams();
+
+  // Auto-open guide when redirected from farm unlock flow
+  useEffect(() => {
+    const forceFromQuery = searchParams.get("guide") === "1";
+    const forceFromUnlock = activeFarmId
+      ? localStorage.getItem(`chronofarm_exchange_pending_guide_${activeFarmId}`) === "true"
+      : false;
+
+    if (forceFromQuery || forceFromUnlock) {
+      if (activeFarmId) {
+        localStorage.removeItem(`chronofarm_exchange_pending_guide_${activeFarmId}`);
+      }
+      localStorage.removeItem("chronofarm_exchange_tutorial_seen");
+      setTutorialStep(1);
+
+      if (forceFromQuery) {
+        router.replace("/section");
+      }
+    }
+  }, [searchParams, router, activeFarmId]);
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -347,7 +374,41 @@ export default function SectionPage() {
             </div>
           </div>
         </div>
+        <div className="flex items-center gap-6">
+          <button
+            title="Open exchange guide"
+            onClick={() => {
+              localStorage.removeItem("chronofarm_exchange_tutorial_seen");
+              setTutorialStep(1);
+            }}
+            className="border border-[var(--game-border)] bg-[rgba(0,0,0,0.4)] text-[var(--foreground)] px-3 py-1 rounded text-xs"
+          >
+            ? Guide
+          </button>
+        </div>
       </header>
+
+      {/* EXCHANGE TUTORIAL OVERLAY */}
+      {tutorialStep > 0 && (
+        <div className="fixed inset-0 z-40 bg-black/80 flex items-center justify-center transition-opacity pointer-events-none">
+          <div className="bg-[#0a0f0a] border border-emerald-500/50 p-6 rounded-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] max-w-lg w-full text-center flex flex-col gap-5 pointer-events-auto">
+            <div className="text-emerald-400 font-bold tracking-[0.2em] uppercase text-xs">GLOBAL EXCHANGE GUIDE</div>
+            <div className="text-zinc-200 text-sm leading-relaxed tracking-wide min-h-[3rem]">
+              {tutorialStep === 1 && "Welcome to the Global Exchange! This is where you can list offers and trade crops with others."}
+              {tutorialStep === 2 && "Use the LIST OFFER button to create a trade. Set the crop, quantity, price and currency."}
+              {tutorialStep === 3 && "Browse open offers in the center. Click BUY to pay on-chain and complete the trade. Good luck!"}
+            </div>
+            <button className="btn-game btn-game-green self-center text-xs px-8 py-2" onClick={() => {
+              if (tutorialStep === 3) {
+                setTutorialStep(0);
+                localStorage.setItem("chronofarm_exchange_tutorial_seen", "true");
+              } else {
+                setTutorialStep(tutorialStep + 1);
+              }
+            }}>{tutorialStep === 3 ? "START TRADING" : "NEXT"}</button>
+          </div>
+        </div>
+      )}
 
       {/* SYSTEM NOTIFICATION */}
       {status && (

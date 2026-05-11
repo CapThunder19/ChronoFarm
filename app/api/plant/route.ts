@@ -61,16 +61,6 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Check player's current region and ensure crop is available there
-    let currentRegion = null;
-    if (user?.currentRegionId) {
-      currentRegion = await prisma.region.findUnique({ where: { id: user.currentRegionId } });
-    }
-
-    if (cropConfig.regions && currentRegion && !cropConfig.regions.includes(currentRegion.name)) {
-      return NextResponse.json({ error: `Cannot plant ${type} in ${currentRegion.name}` });
-    }
-
     // Check farm level against crop unlock level
     const farmLevel = farm.level ?? 1;
     if (cropConfig.unlockLevel && farmLevel < cropConfig.unlockLevel) {

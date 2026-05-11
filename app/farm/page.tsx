@@ -339,12 +339,20 @@ export default function FarmPage() {
     if (!activeFarmId) return;
 
     const unlockSeenKey = `chronofarm_marketplace_unlock_seen_${activeFarmId}`;
+    const skillsUnlockSeenKey = `chronofarm_skills_unlock_seen_${activeFarmId}`;
     const prevLevel = previousLevelRef.current;
     const hasSeenUnlockFlow = localStorage.getItem(unlockSeenKey);
 
     if (!hasSeenUnlockFlow && tutorialStep === 0 && level >= 2 && (prevLevel === null || prevLevel < 2)) {
       localStorage.setItem(unlockSeenKey, "true");
       setTutorialStep(10);
+    }
+
+    // Show the Skills unlock flow when the player reaches level 4.
+    const hasSeenSkillsUnlock = localStorage.getItem(skillsUnlockSeenKey);
+    if (!hasSeenSkillsUnlock && tutorialStep === 0 && level >= 4 && (prevLevel === null || prevLevel < 4)) {
+      localStorage.setItem(skillsUnlockSeenKey, "true");
+      setTutorialStep(12);
     }
 
     if (previousLevelRef.current === null) {
@@ -356,6 +364,13 @@ export default function FarmPage() {
       if (!hasSeenUnlockFlow && tutorialStep === 0) {
         localStorage.setItem(unlockSeenKey, "true");
         setTutorialStep(10);
+      }
+    }
+
+    if (prevLevel !== null && prevLevel < 4 && level >= 4) {
+      if (!hasSeenSkillsUnlock && tutorialStep === 0) {
+        localStorage.setItem(skillsUnlockSeenKey, "true");
+        setTutorialStep(12);
       }
     }
 
@@ -680,14 +695,13 @@ export default function FarmPage() {
     const keys = Object.keys(CROPS).filter(k => !CROPS[k].itemType || CROPS[k].itemType === "crop");
     const firstAllowed = keys.find((k) => {
       const cfg = CROPS[k] as any;
-      if (cfg.regions && currentRegion && !cfg.regions.includes(currentRegion.name)) return false;
       if (cfg.unlockLevel && (level ?? 1) < cfg.unlockLevel) return false;
       return true;
     });
     if (firstAllowed && !Object.keys(CROPS).includes(selectedCrop)) setSelectedCrop(firstAllowed);
     if (firstAllowed && selectedCrop) {
       const selCfg = CROPS[selectedCrop] as any;
-      const selAllowed = !(selCfg.regions && currentRegion && !selCfg.regions.includes(currentRegion.name)) && !(selCfg.unlockLevel && (level ?? 1) < selCfg.unlockLevel);
+      const selAllowed = !(selCfg.unlockLevel && (level ?? 1) < selCfg.unlockLevel);
       if (!selAllowed) setSelectedCrop(firstAllowed);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -701,7 +715,7 @@ export default function FarmPage() {
     { icon: "🔧", label: "Engineering",      href: "/crafting",    active: false },
     { icon: "🏪", label: "Marketplace",      href: "/marketplace", active: false },
     { icon: "🌐", label: "Exchange",          href: "/section",     active: false },
-    { icon: "🗺️", label: "World Map",        href: null,           active: false },
+    { icon: "🧠", label: "Skills",           href: "/skills",     active: false },
     { icon: "🏆", label: "Achievements",      href: null,           active: false },
     { icon: "👑", label: "Leaderboard",       href: "/leaderboard", active: false },
   ];
@@ -748,9 +762,12 @@ export default function FarmPage() {
               {tutorialStep === 8 && "Notice the Timeline at the bottom. As you level up, you can Advance Time to reach new eras and trigger global events."}
               {tutorialStep === 9 && "Check your Level and EXP in the top bar. Keep farming to level up! Remember: Some features remain locked until you prove yourself."}
               {tutorialStep === 10 && "Level 2 reached! Marketplace is now unlocked. We'll highlight the Market button for you."}
-              {tutorialStep === 11 && "Click the glowing MARKET button in Quick Actions to enter the Marketplace. Its full guide will open there."}
+                {tutorialStep === 11 && "Click the glowing MARKET button in Quick Actions to enter the Marketplace. Its full guide will open there."}
+                {tutorialStep === 12 && "Level 4 reached! Skills are now unlocked. You can choose how your player progresses from here."}
+                {tutorialStep === 13 && "Click the glowing SKILLS button in Quick Actions to open the skills menu."}
+                {tutorialStep === 14 && "Inside Skills, choose Farm to return here or Mining to enter the mining page."}
             </div>
-            {(tutorialStep === 1 || tutorialStep === 7 || tutorialStep === 8 || tutorialStep === 9 || tutorialStep === 10) && (
+              {(tutorialStep === 1 || tutorialStep === 7 || tutorialStep === 8 || tutorialStep === 9 || tutorialStep === 10 || tutorialStep === 12) && (
               <button className="btn-game btn-game-green self-center text-xs px-8 py-2" onClick={() => {
                 if (tutorialStep === 9) {
                    setTutorialStep(0);
@@ -760,10 +777,12 @@ export default function FarmPage() {
                    localStorage.setItem("chronofarm_tutorial_seen", "true");
                 } else if (tutorialStep === 10) {
                    setTutorialStep(11);
-                } else {
+                } else if (tutorialStep === 12) {
+                   setTutorialStep(13);
+                 } else {
                    setTutorialStep(tutorialStep + 1);
                 }
-              }}>{tutorialStep === 9 ? "START FARMING" : tutorialStep === 10 ? "SHOW MARKET BUTTON" : "NEXT"}</button>
+              }}>{tutorialStep === 9 ? "START FARMING" : tutorialStep === 10 ? "SHOW MARKET BUTTON" : tutorialStep === 12 ? "SHOW SKILLS BUTTON" : "NEXT"}</button>
             )}
           </div>
         </div>
@@ -797,6 +816,8 @@ export default function FarmPage() {
               const isLocked = (() => {
                 if (n.label === "The Farm") return false;
                 if (n.label === "Marketplace") return level < 2;
+                if (n.label === "Engineering") return level < 5;
+                if (n.label === "Skills") return level < 4;
                 return level < 3;
               })();
               const cls = `flex items-center gap-2 px-3 py-2 text-sm transition-all ${
@@ -817,7 +838,7 @@ export default function FarmPage() {
               if (isLocked) return <div key={n.label} className={cls}>{inner}</div>;
               
               if (n.href && !n.active) return <Link key={n.label} href={n.href}><div className={cls}>{inner}</div></Link>;
-              return <div key={n.label} className={cls} onClick={n.label === "World Map" ? () => setShowMap(!showMap) : undefined}>{inner}</div>;
+              return <div key={n.label} className={cls}>{inner}</div>;
             })}
           </nav>
           <div className="border-t border-zinc-700 p-3">
@@ -860,7 +881,7 @@ export default function FarmPage() {
                   <button onClick={() => setShowMap(false)} className="text-[#cda66d] border border-[#cda66d]/30 hover:bg-[#cda66d]/10 px-4 py-2 rounded flex items-center gap-2 text-xs font-bold tracking-widest transition-colors">
                     <ChevronLeft className="w-4 h-4" /> BACK
                   </button>
-                  <h1 className="text-2xl font-serif text-zinc-100 tracking-wider">WORLD MAP</h1>
+                  <h1 className="text-2xl font-serif text-zinc-100 tracking-wider">SKILLS</h1>
                 </div>
                 
                 {/* Stats */}
@@ -1094,7 +1115,7 @@ export default function FarmPage() {
                       <div className="grid grid-cols-2 gap-2">
                         {Object.keys(CROPS).filter(k => !CROPS[k].itemType || CROPS[k].itemType === "crop").map(k => {
                           const cfg = CROPS[k] as any;
-                          const dis = (cfg.regions && currentRegion && !cfg.regions.includes(currentRegion.name)) || (cfg.unlockLevel && level < cfg.unlockLevel);
+                          const dis = cfg.unlockLevel && level < cfg.unlockLevel;
                           const isTutTarget = tutorialStep === 3 && k === "WHEAT";
                           return (
                             <button
@@ -1368,7 +1389,7 @@ export default function FarmPage() {
     </div>
 
     <div className="grid grid-cols-2 gap-1.5">
-      {level < 3 ? (
+      {level < 5 ? (
         <button disabled className="btn-game btn-game-dark w-full opacity-50 cursor-not-allowed" style={{fontSize:"10px",padding:"8px 6px"}}>⚙️ Crafting</button>
       ) : (
         <Link href="/crafting" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>⚙️ Crafting</Link>
@@ -1394,16 +1415,36 @@ export default function FarmPage() {
         </Link>
       )}
 
-      {level < 3 ? (
-        <button disabled className="btn-game btn-game-dark w-full opacity-50 cursor-not-allowed" style={{fontSize:"10px",padding:"8px 6px"}}>🗺️ World Map</button>
+      {level < 4 ? (
+        <button disabled className="btn-game btn-game-dark w-full opacity-50 cursor-not-allowed" style={{fontSize:"10px",padding:"8px 6px"}}>🧠 Skills</button>
       ) : (
-        <button onClick={() => setShowMap(true)} className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>🗺️ World Map</button>
+        <Link
+          href="/skills"
+          className={`btn-game btn-game-dark w-full ${tutorialStep === 13 ? "z-50 relative pointer-events-auto ring-4 ring-emerald-400 ring-offset-2 ring-offset-black animate-pulse" : ""}`}
+          style={{fontSize:"10px",padding:"8px 6px"}}
+          onClick={() => {
+            if (tutorialStep === 13) {
+              if (activeFarmId) {
+                localStorage.setItem(`chronofarm_skills_pending_guide_${activeFarmId}`, "true");
+              }
+              setTutorialStep(0);
+            }
+          }}
+        >
+          🧠 Skills
+        </Link>
       )}
 
       {level < 3 ? (
         <button disabled className="btn-game btn-game-dark w-full opacity-50 cursor-not-allowed" style={{fontSize:"10px",padding:"8px 6px"}}>💬 Chat</button>
       ) : (
-        <Link href="/section" className="btn-game btn-game-dark w-full" style={{fontSize:"10px",padding:"8px 6px"}}>💬 Chat</Link>
+        <Link
+          href="/section"
+          className="btn-game btn-game-dark w-full"
+          style={{fontSize:"10px",padding:"8px 6px"}}
+        >
+          💬 Chat
+        </Link>
       )}
     </div>
   </div>
